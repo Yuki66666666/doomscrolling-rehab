@@ -9,13 +9,13 @@
 <meta property="og:description" content="不封鎖、不說教。你選的 app 會越滑越卡，卡到你自己把手機放下。">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="DoomScrolling Rehab">
-<meta property="og:url" content="https://doomscrolling-rehab.vercel.app/">
-<meta property="og:image" content="https://doomscrolling-rehab.vercel.app/og.jpg">
+<meta property="og:url" content="https://doomscroll-rehab-site.vercel.app/">
+<meta property="og:image" content="https://doomscroll-rehab-site.vercel.app/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://doomscrolling-rehab.vercel.app/og.jpg">
-<link rel="canonical" href="https://doomscrolling-rehab.vercel.app/">
+<meta name="twitter:image" content="https://doomscroll-rehab-site.vercel.app/og.jpg">
+<link rel="canonical" href="https://doomscroll-rehab-site.vercel.app/">
 <meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://www.youtube-nocookie.com">
 <link rel="preconnect" href="https://i.ytimg.com">
@@ -57,7 +57,7 @@ button { font: inherit; color: inherit; }
 .small { font-size: 15px; line-height: 1.6; }
 
 /* the whole page is one feed you scroll like short videos */
-.feed { height: 100vh; height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; }
+.feed { height: 100vh; height: 100dvh; overflow-anchor: none; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; }
 .reel { position: relative; height: 100vh; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; background: #8B5CF6; }
 .clip { position: absolute; inset: 0; transition: filter 400ms var(--ease); }
 .clip iframe { position: absolute; left: 50%; top: 50%; width: max(100%, 177.8vh); height: max(100%, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }
@@ -350,7 +350,7 @@ footer { padding: 32px 0 48px; }
       clear: 'The AI says: specific, and it ends. Full speed is back. Go find that recipe.',
       last: 'Full speed is back. That was the third time today, so that is it until tomorrow.',
       none: 'No more speed-ups today. Tomorrow.',
-      bad: 'That email looks off. Mind checking it?', ok: 'You are on the list. We will email you when your spot opens.', dup: 'You are already on the list.', err: 'Something went wrong. Please try again in a moment.', sending: 'Sending…',
+      bad: 'That email looks off. Mind checking it?', ok: 'Thanks. If this address is not on the list yet, it is now. We will email you when your spot opens.', err: 'Something went wrong. Please try again in a moment.', sending: 'Sending…',
       sleep: 'Phone down. Nice.',
       real: function (m) { return m ? 'In the real app, on day one, it gets this slow about ' + m + ' minutes in.' : 'In the real app, the first ten minutes of day one look just like that: completely normal.'; },
       verdict: function (n) { return n >= 8 ? 'You scrolled all ' + n + ' videos. Nobody stopped you.' : 'You put it down after ' + n + (n === 1 ? ' video.' : ' videos.') + ' Nobody had to stop you.'; }
@@ -365,7 +365,7 @@ footer { padding: 32px 0 48px; }
       clear: 'AI 說：夠具體，也有終點。還你全速，去找食譜吧。',
       last: '還你全速。這是今天第三次，明天之前沒有了。',
       none: '今天不能再要回速度了，明天吧。',
-      bad: '這個 email 看起來怪怪的，再檢查一下？', ok: '收到，你在名單上了。名額開放時會寄信給你。', dup: '你已經在名單上了。', err: '送出失敗，等一下再試一次。', sending: '送出中…',
+      bad: '這個 email 看起來怪怪的，再檢查一下？', ok: '收到。這個 email 如果還不在名單上，現在已經加入了。名額開放時會寄信給你。', err: '送出失敗，等一下再試一次。', sending: '送出中…',
       sleep: '手機放下了。很好。',
       real: function (m) { return m ? '在真正的 App 裡，第一天大約滑到第 ' + m + ' 分鐘，就會慢成這樣。' : '在真正的 App 裡，第一天的前十分鐘就像這樣：完全正常。'; },
       verdict: function (n) { return n >= 8 ? '你把 ' + n + ' 支全滑完了，沒有人擋你。' : '你滑了 ' + n + ' 支就放下了，沒有人需要擋你。'; }
@@ -523,8 +523,8 @@ footer { padding: 32px 0 48px; }
     render();
   });
 
-  // ---- waitlist (Supabase; the key is a publishable one, access is limited by row level security) ----
-  var WL = { url: 'https://ayyllxwelxcgygtrvqnl.supabase.co', key: 'sb_publishable_yH1NoTH8BPFKgqvAnv08Pg_ILq-7cOl' };
+  // ---- waitlist: one row per signup in our Google Sheet (see waitlist/apps-script.gs) ----
+  var WL = { sheet: 'https://script.google.com/macros/s/AKfycbyC1sVGo7We1YWyDYc1YEs9ndrbCnqJjkr4jnzydk5c0t9J_AKu7aXPyEGUU-qd176M3Q/exec' };
   var APPS = [['YouTube', 1], ['Instagram', 1], ['TikTok', 1], ['Threads', 1], ['Facebook', 1], ['X', 0], ['Reddit', 0], ['小紅書', 0], ['Dcard', 0]];
   var picked = {}, chips = $('chips');
   for (var ai = 0; ai < APPS.length; ai++) {
@@ -546,12 +546,14 @@ footer { padding: 32px 0 48px; }
     var input = $('email'), btn = $('joinBtn'), email = input.value.trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 254) { say('bad'); input.focus(); return; }
     btn.disabled = true; say('sending');
-    fetch(WL.url + '/rest/v1/waitlist', {
-      method: 'POST',
-      headers: { apikey: WL.key, Authorization: 'Bearer ' + WL.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
-      body: JSON.stringify({ email: email, apps: Object.keys(picked), lang: lang })
-    }).then(function (r) {
-      if (r.ok) { say('ok'); input.value = ''; } else if (r.status === 409) say('dup'); else say('err');
+    // text/plain keeps it a simple request, so the browser sends no preflight
+    fetch(WL.sheet, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ email: email, apps: Object.keys(picked), lang: lang, referrer: (document.referrer || '').slice(0, 300) })
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      // New or already registered, the answer is the same sentence:
+      // otherwise anyone could type someone else's email and learn whether they signed up.
+      if (j && j.ok) { say('ok'); input.value = ''; } else say('err');
     }).catch(function () { say('err'); }).then(function () { btn.disabled = false; });
   });
 
@@ -573,6 +575,9 @@ footer { padding: 32px 0 48px; }
 
   render();
   warm(0);
+  // always start on the first screen, even if the browser tries to keep an old position
+  feed.scrollTop = 0;
+  window.addEventListener('pageshow', function () { feed.scrollTop = 0; });
 })();
 </script>
 </body>
