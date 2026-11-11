@@ -24,6 +24,14 @@ We found no published study of network throttling as an intervention. That is th
 6. Each day the full-speed window is 7% shorter than the day before, over fourteen days.
 7. Asking for speed back opens a chat with the negotiator. It uses motivational interviewing: one open question at a time, no lecturing. A specific reason and a stopping point earn up to 10 minutes. Three boosts a day.
 
+## Where the AI is
+
+- Coach: you describe how you scroll in your own words. The model sets the four numbers that shape your curve (full-speed window, daily tightening, ramp length, floor speed) and says why. It also sees the sessions the proxy has measured.
+- Negotiator: the model decides whether you get speed back and for how long.
+- Feed finder: the model reads the hostnames your phone is loading and picks out the ones that are feeds, so new apps are covered without a hand-kept list. It can only add hosts the phone really contacted.
+
+The throttle itself is plain code. The model decides how hard it bites, for whom, and when it lets go.
+
 ## Run it
 
 Needs Node 18 or later. No dependencies.

@@ -143,6 +143,12 @@
         <p class="small muted">Each day the full-speed window is 7 percent shorter than the day before, a change small enough to go unnoticed. Tap a day to preview it.</p>
         <div class="plan" id="plan"></div>
         <p class="small" id="planNote"></p>
+        <p class="small" id="coachNote" style="margin-top:8px" hidden></p>
+        <form class="say" id="coach" style="margin-top:12px">
+          <input type="text" id="about" placeholder="Tell the coach how you scroll: how long, when, what you tried" autocomplete="off" maxlength="1200" aria-label="About your scrolling">
+          <button class="plain" id="coachBtn" type="submit">Write my plan</button>
+        </form>
+        <p class="small muted" id="coachStatus" style="margin-top:8px"></p>
       </section>
 
       <section class="card">
@@ -150,6 +156,10 @@
         <p class="small muted">Hostnames only. The proxy never sees inside the connection.</p>
         <ul class="hosts" id="hosts"></ul>
         <p class="small muted" id="hostsEmpty">Nothing yet. Set the phone's Wi-Fi proxy to <code id="proxyAddr"></code> and open a feed.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="plain" id="findFeeds" type="button">Find feeds with AI</button>
+          <span class="small muted" id="findStatus"></span>
+        </div>
       </section>
     </div>
 
@@ -263,7 +273,15 @@
       b.setAttribute('aria-label', 'Day ' + (i + 1) + ', ' + s.plan[i] + ' minutes at full speed');
     });
     $('planNote').textContent = 'Day ' + (s.day + 1) + ': full speed for the first ' + s.plan[s.day] +
-      ' minutes. Day ' + s.plan.length + ': ' + s.plan[s.plan.length - 1] + ' minutes.';
+      ' minutes. Day ' + s.plan.length + ': ' + s.plan[s.plan.length - 1] + ' minutes. Ramp ' +
+      s.planParams.rampMin + ' min, floor ' + s.planParams.floorKbps + ' kbps.';
+    $('coachNote').hidden = !s.planNote;
+    $('coachNote').textContent = s.planNote ? 'Coach: ' + s.planNote : '';
+    if (!$('coachStatus').dataset.busy) {
+      $('coachStatus').textContent = s.planSource === 'coach'
+        ? 'This plan was written by the coach from what you told it and ' + s.sessionsLogged + ' measured sessions.'
+        : 'This is the default plan. Nobody has told the coach anything yet.';
+    }
   }
 
   function drawHosts(s) {
@@ -368,6 +386,37 @@
       $('send').disabled = false;
       $('text').focus();
     });
+  });
+
+  $('coach').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var about = $('about').value.trim();
+    if (!about) return;
+    var status = $('coachStatus');
+    status.dataset.busy = '1';
+    status.textContent = 'The coach is reading what you wrote';
+    $('coachBtn').disabled = true;
+    post('/api/plan', { about: about }).then(function (r) {
+      delete status.dataset.busy;
+      if (r.error) { status.dataset.busy = '1'; status.textContent = r.error; return; }
+      $('about').value = '';
+      render(r);
+    }).catch(function (err) {
+      status.textContent = 'Could not reach the coach: ' + err.message;
+    }).then(function () { $('coachBtn').disabled = false; });
+  });
+
+  $('findFeeds').addEventListener('click', function () {
+    var status = $('findStatus');
+    status.textContent = 'Reading the host list';
+    $('findFeeds').disabled = true;
+    post('/api/find-feeds', {}).then(function (r) {
+      if (r.error) { status.textContent = r.error; return; }
+      status.textContent = r.added.length ? 'Now slowing: ' + r.added.join(', ') : 'No new feeds found';
+      render(r.state);
+    }).catch(function (err) {
+      status.textContent = 'Could not reach the model: ' + err.message;
+    }).then(function () { $('findFeeds').disabled = false; });
   });
 
   $('scales').addEventListener('click', function (e) {

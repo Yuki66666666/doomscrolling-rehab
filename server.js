@@ -22,13 +22,17 @@ const os = require('os');
 const PROXY_PORT = Number(process.env.PROXY_PORT || 8888);
 const DASH_PORT = Number(process.env.DASH_PORT || 3000);
 
-const START_GRACE_MIN = 10;   // day 1: full speed for the first 10 minutes of a session
-const DAILY_FACTOR = 0.93;    // each day the grace period shrinks by 7 percent
+// The four `let` values are the taper plan. The AI coach rewrites them per person.
+let START_GRACE_MIN = 10;     // day 1: full speed for the first 10 minutes of a session
+let DAILY_FACTOR = 0.93;      // each day the grace period shrinks by 7 percent
 const MIN_GRACE_MIN = 1;
 const PLAN_DAYS = 14;
-const RAMP_MIN = 15;          // minutes to go from full speed to the floor
+let RAMP_MIN = 15;            // minutes to go from full speed to the floor
 const MAX_KBPS = 3000;        // speed right after the grace period ends
-const MIN_KBPS = 40;          // floor: below the lowest video bitrate, so feeds stall
+let MIN_KBPS = 40;            // floor: below the lowest video bitrate, so feeds stall
+let planNote = '';            // the coach's explanation of the current plan
+let planSource = 'default';   // 'default' or 'coach'
+const sessionLog = [];        // finished sessions: { minutes, boosts, endedAt }
 const MAX_CONNECT_DELAY_MS = 3000;
 const IDLE_RESET_MIN = 10;    // away from the feed this long and the session resets
 const ACTIVE_WINDOW_MS = 8000;
@@ -114,6 +118,8 @@ setInterval(() => {
   if (isActive()) {
     if (!boosted) state.sessionMs += dt * state.timeScale;
   } else if (state.sessionMs > 0 && now - state.lastActive > idleResetMs()) {
+    sessionLog.push({ minutes: Math.round(state.sessionMs / 6000) / 10, boosts: state.grantsToday, endedAt: new Date().toISOString() });
+    if (sessionLog.length > 50) sessionLog.shift();
     state.sessionMs = 0;
   }
 }, 250);
@@ -323,16 +329,16 @@ function systemPrompt() {
   ].join('\n');
 }
 
-async function askLLM(messages) {
+async function askLLM(messages, system) {
   const base = process.env.LLM_BASE_URL.replace(/\/+$/, '');
   const r = await fetch(base + '/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + process.env.LLM_API_KEY },
     body: JSON.stringify({
       model: process.env.LLM_MODEL,
-      messages: [{ role: 'system', content: systemPrompt() }, ...messages],
+      messages: [{ role: 'system', content: system || systemPrompt() }, ...messages],
       temperature: 0.5,
-      max_tokens: 400,
+      max_tokens: 600,
     }),
     signal: AbortSignal.timeout(25000),
   });
@@ -392,6 +398,71 @@ async function negotiate(messages) {
   return { reply: decision.reply, grantMinutes: grant, source, error };
 }
 
+// ---------- AI coach: writes the taper plan ----------
+
+function extractJson(text) {
+  const clean = String(text).replace(/<think>[\s\S]*?<\/think>/g, '');
+  const a = clean.indexOf('{');
+  const b = clean.lastIndexOf('}');
+  if (a === -1 || b <= a) throw new Error('model did not return JSON');
+  return JSON.parse(clean.slice(a, b + 1));
+}
+
+const clamp = (v, lo, hi, fallback) => (Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : fallback);
+
+async function coachPlan(about) {
+  if (!aiConfigured()) throw new Error('No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.');
+  const system = [
+    'You are the coach inside Doomscroll Rehab. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days.',
+    'You set four numbers for this person:',
+    '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. Set it a little under how long their sessions run now, so day 1 barely feels different.',
+    '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who have quit and relapsed before.',
+    '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who say they lose track of time.',
+    '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would remove the app if it stalled.',
+    'Then write note: at most 50 words, to the person, in the language they wrote in, saying why these numbers fit what they told you. No lecturing, no statistics.',
+    'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
+  ].join('\n');
+  const user = 'What the person said about their scrolling:\n' + about +
+    '\n\nSessions measured by the app so far (minutes, speed boosts asked for):\n' +
+    (sessionLog.length ? JSON.stringify(sessionLog.slice(-20)) : 'none yet');
+  const j = extractJson(await askLLM([{ role: 'user', content: user }], system));
+  START_GRACE_MIN = clamp(j.start_grace_min, 2, 30, START_GRACE_MIN);
+  DAILY_FACTOR = clamp(j.daily_factor, 0.85, 0.98, DAILY_FACTOR);
+  RAMP_MIN = clamp(j.ramp_min, 5, 30, RAMP_MIN);
+  MIN_KBPS = clamp(j.floor_kbps, 20, 300, MIN_KBPS);
+  planNote = String(j.note || '').slice(0, 500);
+  planSource = 'coach';
+}
+
+// ---------- AI feed finder: which of the hosts the phone is loading are feeds ----------
+
+async function findFeeds() {
+  if (!aiConfigured()) throw new Error('No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.');
+  const now = Date.now();
+  const seen = [...hostStats.entries()]
+    .filter(([h, s]) => !isTarget(h) && now - s.last < 600000)
+    .sort((a, b) => b[1].bytes - a[1].bytes)
+    .slice(0, 40)
+    .map(([h, s]) => ({ host: h, kb: Math.round(s.bytes / 1024) }));
+  if (!seen.length) return [];
+  const system = [
+    'You are given hostnames a phone connected to in the last ten minutes, with kilobytes downloaded.',
+    'Pick the ones that serve short-video or infinite social feeds or their video CDNs (for example TikTok, Douyin, Instagram Reels, Threads, YouTube Shorts, Hongguo, Kuaishou, Xiaohongshu, Facebook Reels).',
+    'Do not pick messaging, maps, payments, search, email, app stores, system services, analytics or ad hosts.',
+    'Answer with JSON only: {"feeds": ["domain suffix", ...]} using the shortest suffix that still belongs to that service, for example "tiktokcdn.com". Use an empty list if none.',
+  ].join('\n');
+  const j = extractJson(await askLLM([{ role: 'user', content: JSON.stringify(seen) }], system));
+  const added = [];
+  for (const raw of Array.isArray(j.feeds) ? j.feeds : []) {
+    const suffix = String(raw).trim().toLowerCase().replace(/^\*?\./, '');
+    if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(suffix)) continue;
+    // only accept suffixes of hosts the phone really contacted
+    if (!seen.some((s) => s.host === suffix || s.host.endsWith('.' + suffix))) continue;
+    if (!targets.has(suffix)) { targets.add(suffix); added.push(suffix); }
+  }
+  return added;
+}
+
 // ---------- dashboard + API ----------
 
 function lanAddresses() {
@@ -436,6 +507,10 @@ function snapshot() {
     timeScale: state.timeScale,
     day: state.day,
     plan,
+    planNote,
+    planSource,
+    planParams: { startGraceMin: START_GRACE_MIN, dailyFactor: DAILY_FACTOR, rampMin: RAMP_MIN, floorKbps: MIN_KBPS },
+    sessionsLogged: sessionLog.length,
     grantsToday: state.grantsToday,
     maxGrants: MAX_GRANTS_PER_DAY,
     hosts,
@@ -482,6 +557,19 @@ const dash = http.createServer(async (req, res) => {
         .map((m) => ({ role: m.role, content: m.content.slice(0, 600) }));
       if (!messages.length) return sendJson(res, 400, { error: 'no messages' });
       return sendJson(res, 200, await negotiate(messages));
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/plan') {
+      const body = await readJson(req);
+      const about = String(body.about || '').trim().slice(0, 1200);
+      if (!about) return sendJson(res, 400, { error: 'Tell the coach something first.' });
+      await coachPlan(about);
+      return sendJson(res, 200, snapshot());
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/find-feeds') {
+      const added = await findFeeds();
+      return sendJson(res, 200, { added, state: snapshot() });
     }
 
     if (req.method === 'POST' && url.pathname === '/api/demo') {
