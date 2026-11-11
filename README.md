@@ -4,6 +4,10 @@ The longer you scroll short videos, the slower they load. No blocking, no lock s
 
 Built at c0mpiled-18, the YC Startup School Hackathon in Taipei, for the topic "AI Powered Consumer Products for a Billion People".
 
+**Status:** Android first. The Android app in this repo is what we are building and testing right now. An iOS version will follow.
+
+**Landing page and waitlist:** https://doomscrolling-rehab.vercel.app
+
 ## Why slowing instead of blocking
 
 - Blockers get switched off. A hard limit feels imposed, so people remove it.
