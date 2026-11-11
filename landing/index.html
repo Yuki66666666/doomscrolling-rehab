@@ -3,202 +3,180 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Doomscroll Rehab</title>
+<title>Doomscroll Rehab: finally put your phone down</title>
 <link rel="icon" href="icon-192.png">
-<meta name="description" content="The longer you scroll short videos, the slower they load. No blocking, no lock screen.">
+<meta name="description" content="Short videos get slower and blurrier the longer you watch, until putting the phone down is easy. No blocking, no lock screen.">
 <style>
-/* Colours come from the app icon. 60 near-black, 30 ghost white + purple grey, 10 magenta (primary button and the spinner only). */
+/* 60 soft lavender white, 30 deep plum + pale lavender, 10 magenta from the app icon (main button and the ghost's spinner only). */
 :root {
-  --bg: #06060F;
-  --ink: #F6F2F7;
-  --soft: #6B5B8C;
-  --deep: #17141F;
+  --bg: #FAF5FF;
+  --ink: #2E1A47;
+  --soft: #EDE9FE;
+  --mid: #C4B5FD;
+  --card: #FFFFFF;
+  --plum: #2E1A47;
+  --plum-ink: #FAF5FF;
+  --plum-muted: #C9BDE0;
   --cta: #FF2DD0;
-  --cta-ink: #06060F;
-  --muted: #B9AFC4;
-  --line: rgba(246, 242, 247, 0.1);
-  --line-strong: rgba(246, 242, 247, 0.3);
-  --paper: #F6F2F7;
-  --paper-ink: #06060F;
-  --paper-muted: #5A4F6E;
-  --paper-line: rgba(6, 6, 15, 0.1);
+  --cta-ink: #2E1A47;
+  --muted: #5F4E7A;
+  --line: rgba(46, 26, 71, 0.08);
+  --line-strong: rgba(46, 26, 71, 0.2);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --sans: "Helvetica Neue", Helvetica, "Arial Nova", Arial, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", system-ui, sans-serif;
-  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, Menlo, monospace;
-  color-scheme: dark;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.7 var(--sans); overflow-x: hidden; }
-h1, h2, h3, p, dl, dd, ul { margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.7 var(--sans); overflow-x: hidden; }
+h1, h2, h3, p, ul, dl, dd { margin: 0; padding: 0; }
 ul { list-style: none; }
 a { color: inherit; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-.wrap { max-width: 1160px; margin: 0 auto; padding: 0 16px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 @media (min-width: 720px) { .wrap { padding: 0 32px; } }
 .muted { color: var(--muted); }
 .small { font-size: 14px; line-height: 1.6; }
 
-/* sticky speed bar */
-.bar { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
-.bar-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 56px; }
+.bar-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 64px; }
 .bar-name { font-weight: 500; white-space: nowrap; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-.bar-name img { width: 28px; height: 28px; border-radius: 7px; display: block; }
-.gauge { display: flex; align-items: center; gap: 8px; font-size: 14px; white-space: nowrap; }
-.gauge svg { width: 22px; height: 22px; display: block; }
-.gauge .lab { color: var(--muted); display: none; }
-@media (min-width: 820px) { .gauge .lab { display: inline; } }
-.bar-right { display: flex; align-items: center; gap: 14px; font-size: 14px; white-space: nowrap; }
-@media (max-width: 420px) { .bar-name span { display: none; } }
+.bar-name img { width: 32px; height: 32px; border-radius: 8px; display: block; }
+.bar-right { display: flex; align-items: center; gap: 16px; font-size: 15px; white-space: nowrap; }
 .lang {
-  font: inherit; font-size: 14px; color: inherit; cursor: pointer; background: transparent;
-  border: 1px solid var(--line-strong); border-radius: 8px; padding: 2px 10px; line-height: 1.6;
+  font: inherit; font-size: 15px; color: inherit; cursor: pointer; background: transparent;
+  border: 1px solid var(--line-strong); border-radius: 8px; padding: 2px 12px; line-height: 1.7;
   transition: background 140ms var(--ease), transform 140ms var(--ease);
 }
-.lang:hover { background: var(--deep); }
+.lang:hover { background: var(--soft); }
 .lang:active { transform: scale(0.96); }
-.seg { stroke: var(--soft); transition: stroke 300ms var(--ease); }
-.seg.on { stroke: var(--cta); }
-.pop { animation: pop 420ms var(--ease); }
-@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.18); } 100% { transform: scale(1); } }
 
 /* hero */
-.hero { display: grid; gap: 32px; padding: 48px 0 56px; align-items: center; }
-@media (min-width: 980px) { .hero { grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 48px; padding: 72px 0 88px; min-height: min(calc(100vh - 57px), 820px); } }
-h1 { font-size: clamp(44px, 7.4vw, 80px); font-weight: 600; line-height: 1.02; letter-spacing: -0.03em; max-width: 10.5em; }
-html[lang="zh-Hant"] h1 { font-size: clamp(40px, 6.4vw, 72px); line-height: 1.16; letter-spacing: 0; max-width: 8em; }
-.lede { font-size: 19px; line-height: 1.6; margin-top: 24px; max-width: 30em; color: var(--muted); }
+.hero { display: grid; gap: 32px; padding: 32px 0 64px; align-items: center; }
+@media (min-width: 940px) { .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 56px; padding: 56px 0 88px; } }
+h1 { font-size: clamp(42px, 7vw, 76px); font-weight: 600; line-height: 1.04; letter-spacing: -0.03em; text-wrap: balance; }
+html[lang="zh-Hant"] h1 { font-size: clamp(40px, 6.4vw, 70px); line-height: 1.2; letter-spacing: 0; }
+.lede { font-size: 20px; line-height: 1.6; margin-top: 24px; max-width: 28em; color: var(--muted); }
 html[lang="zh-Hant"] .lede { line-height: 1.85; }
-.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 36px; }
+.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 32px; }
 .btn { position: relative; overflow: hidden; cursor: pointer; transition: transform 140ms var(--ease); }
 .btn:active { transform: scale(0.96); }
 .btn.up { animation: up 380ms var(--ease); }
 @keyframes up { 0% { transform: scale(0.96); } 45% { transform: scale(1.04); } 100% { transform: scale(1); } }
-.rip { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: currentColor; opacity: 0.3; pointer-events: none; animation: rip 480ms var(--ease) forwards; }
+.rip { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: currentColor; opacity: 0.25; pointer-events: none; animation: rip 480ms var(--ease) forwards; }
 @keyframes rip { to { transform: scale(14); opacity: 0; } }
-.cta { display: inline-block; background: var(--cta); color: var(--cta-ink); font-weight: 500; font-size: 17px; text-decoration: none; padding: 14px 24px; border-radius: 8px; }
+.cta { display: inline-block; background: var(--cta); color: var(--cta-ink); font-weight: 500; font-size: 18px; text-decoration: none; padding: 14px 26px; border-radius: 8px; }
+.plain { text-underline-offset: 4px; }
 
-/* the ghost */
-.ghost { position: relative; width: 100%; max-width: 460px; margin: 0 auto; aspect-ratio: 860 / 790; }
+/* the ghost, on its own dark card like the app icon */
+.stagecard { background: var(--plum); color: var(--plum-ink); border-radius: 24px; padding: 24px 16px 20px; }
+.ghost { position: relative; width: 100%; max-width: 400px; margin: 0 auto; aspect-ratio: 860 / 790; }
 .ghost svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.ghost .body { fill: var(--ink); }
-.ghost .dark { fill: var(--bg); }
-.ghost .lid { stroke: var(--bg); stroke-width: 13; stroke-linecap: round; fill: none; }
-.ghost .hand { fill: var(--ink); stroke: var(--bg); stroke-width: 12; }
+.ghost .body { fill: #FFFFFF; }
+.ghost .dark { fill: var(--plum); }
+.ghost .lid { stroke: var(--plum); stroke-width: 13; stroke-linecap: round; fill: none; }
+.ghost .hand { fill: #FFFFFF; stroke: var(--plum); stroke-width: 12; }
+.ghost .pupils { transform-box: fill-box; transform-origin: 50% 0; transition: transform 600ms var(--ease); }
 .ghost .phone {
   position: absolute; left: 70.7%; top: 78.2%; width: 22.1%; aspect-ratio: 190 / 320;
   transform: translate(-50%, -50%) rotate(20deg);
-  border: 4px solid var(--ink); border-radius: 16px; overflow: hidden; background: var(--bg);
+  border: 4px solid #FFFFFF; border-radius: 14px; overflow: hidden; background: var(--plum);
 }
-.ghost canvas { display: block; width: 100%; height: 100%; }
-.ghost .pupils, .buddy .pupils { transform-box: fill-box; transform-origin: 50% 0; transition: transform 300ms var(--ease); }
-/* the same ghost follows you down the page once the big one scrolls away */
-.buddy {
-  position: fixed; right: 16px; bottom: 16px; z-index: 9; width: 92px; pointer-events: none;
-  background: var(--deep); border: 1px solid var(--line-strong); border-radius: 12px; padding: 8px 8px 6px; text-align: center;
-  opacity: 0; transform: translateY(16px); transition: opacity 300ms var(--ease), transform 300ms var(--ease);
-}
-.buddy.on { opacity: 1; transform: none; }
-.buddy svg { display: block; width: 100%; height: auto; }
-.buddy .body { fill: var(--ink); }
-.buddy .dark { fill: var(--bg); }
-.buddy .lid { stroke: var(--bg); stroke-width: 20; stroke-linecap: round; fill: none; }
-.buddy .num { display: block; font-size: 12px; line-height: 1.5; margin-top: 2px; }
-@media (min-width: 720px) { .buddy { width: 128px; right: 24px; bottom: 24px; padding: 12px 12px 8px; } .buddy .num { font-size: 14px; } }
-.readout { text-align: center; margin-top: 8px; }
-.readout .big { font-size: 34px; line-height: 1.2; display: inline-block; }
-.readout .small { display: block; }
+canvas { display: block; width: 100%; height: 100%; }
+.seg { stroke: #6B5B8C; transition: stroke 400ms var(--ease); }
+.seg.on { stroke: var(--cta); }
+.now { text-align: center; margin-top: 8px; min-height: 3.4em; }
+.now b { display: block; font-weight: 500; font-size: 18px; }
+.now span { color: var(--plum-muted); font-size: 15px; }
 
 /* sections */
 section.blk { padding: 72px 0; border-top: 1px solid var(--line); }
-h2 { font-size: clamp(28px, 4.2vw, 44px); font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; max-width: 16em; text-wrap: balance; }
-html[lang="zh-Hant"] h2 { letter-spacing: 0; line-height: 1.3; }
-h3 { font-size: 18px; font-weight: 500; line-height: 1.4; }
-h2 + p { margin-top: 16px; max-width: 36em; color: var(--muted); font-size: 18px; }
-.two { display: grid; gap: 32px; margin-top: 40px; }
-@media (min-width: 900px) { .two { grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; } }
+h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 500; line-height: 1.15; letter-spacing: -0.02em; max-width: 17em; text-wrap: balance; }
+html[lang="zh-Hant"] h2 { letter-spacing: 0; line-height: 1.35; }
+h3 { font-size: 20px; font-weight: 500; line-height: 1.4; }
+h2 + p { margin-top: 16px; max-width: 34em; color: var(--muted); font-size: 19px; }
 
-.stats { display: grid; gap: 0; border-top: 1px solid var(--line); }
-.stats li { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 16px 0; border-bottom: 1px solid var(--line); }
-@media (min-width: 520px) { .stats li { grid-template-columns: 200px 1fr; gap: 16px; align-items: baseline; } }
-.stats .n { font-size: 24px; line-height: 1.3; }
-.stats .t { color: var(--muted); }
-.days { display: grid; gap: 3px; margin-top: 12px; max-width: 360px; }
-.days i { display: block; height: 6px; background: var(--ink); border-radius: 3px; }
+/* three moments */
+.moments { display: grid; gap: 16px; margin-top: 40px; }
+@media (min-width: 760px) { .moments { grid-template-columns: repeat(3, 1fr); gap: 24px; } }
+.moment { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 1.25rem; display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center; }
+@media (min-width: 760px) { .moment { grid-template-columns: 1fr; align-items: start; } }
+.mini { width: 100%; max-width: 150px; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: var(--plum); }
+@media (min-width: 760px) { .mini { margin: 0 auto 4px; } }
+.moment p { color: var(--muted); margin-top: 4px; }
+.aside { margin-top: 24px; max-width: 40em; }
 
-.plot { position: relative; height: 220px; border-left: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
-.plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.plot path { fill: none; stroke: var(--ink); stroke-width: 2.5; vector-effect: non-scaling-stroke; }
-.dot { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: var(--cta); border: 3px solid var(--bg); left: 0; top: 0; }
-.plot .ylab { position: absolute; right: 0; font-size: 13px; color: var(--muted); background: var(--bg); padding-left: 6px; }
-.plot .ylab.top { top: 6px; }
-.plot .ylab.bot { bottom: 6px; }
-.xlab { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; }
+/* is this you */
+.you { display: grid; gap: 12px; margin-top: 32px; max-width: 760px; }
+.you li { background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem; font-size: 19px; line-height: 1.5; }
+.turn { font-size: clamp(22px, 3vw, 30px); line-height: 1.35; font-weight: 500; letter-spacing: -0.01em; margin-top: 40px; max-width: 20em; text-wrap: balance; }
+html[lang="zh-Hant"] .turn { letter-spacing: 0; line-height: 1.55; }
 
+/* compare */
 .cmp { display: grid; gap: 16px; margin-top: 40px; }
 @media (min-width: 720px) { .cmp { grid-template-columns: 1fr 1fr; } }
-.cmp > div { padding: 1.25rem 1.5rem 1.5rem; border-radius: 12px; border: 1px solid var(--line-strong); }
-.cmp > div.pick { background: var(--soft); border-color: var(--soft); }
+.cmp > div { padding: 1.25rem 1.5rem 1.5rem; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--card); }
+.cmp > div.pick { background: var(--plum); border-color: var(--plum); color: var(--plum-ink); }
 .cmp p { margin-top: 8px; color: var(--muted); }
-.cmp .pick p { color: var(--ink); }
-.pills { height: 64px; margin: 16px 0 4px; display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; align-items: end; }
-.pills i { background: var(--ink); border-radius: 3px; display: block; min-height: 3px; }
-.pills i.off { opacity: 0.25; }
-.lever { font-size: clamp(22px, 3vw, 30px); line-height: 1.3; font-weight: 500; letter-spacing: -0.01em; margin-top: 48px; max-width: 22em; text-wrap: balance; }
-html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
+.cmp .pick p { color: var(--plum-muted); }
+.pills { height: 56px; margin: 16px 0 4px; display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; align-items: end; }
+.pills i { background: currentColor; border-radius: 3px; display: block; min-height: 3px; }
+.pills i.off { opacity: 0.2; }
+.pills-cap { display: flex; justify-content: space-between; font-size: 13px; opacity: 0.7; }
 
-.roles { margin-top: 40px; border-top: 1px solid var(--line); }
-.role { padding: 24px 0; border-bottom: 1px solid var(--line); display: grid; gap: 8px 32px; }
-@media (min-width: 720px) { .role { grid-template-columns: 220px minmax(0, 1fr); } }
-.role h3 { font-size: 24px; }
-.role dd { max-width: 38em; color: var(--muted); }
-.talk { margin-top: 20px; background: var(--deep); color: var(--ink); border-radius: 12px; padding: 1.25rem 1.5rem 1.5rem; }
-.talk .who { font-size: 14px; color: var(--muted); }
-.talk .q { font-size: 20px; line-height: 1.4; margin-top: 2px; }
-.opts { display: grid; gap: 8px; margin-top: 16px; }
-.opt { font: inherit; color: var(--ink); text-align: left; background: transparent; border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; line-height: 1.5; transition: transform 140ms var(--ease), border-color 140ms var(--ease), background 140ms var(--ease); }
+/* helpers */
+.roles { margin-top: 40px; display: grid; gap: 16px; }
+@media (min-width: 900px) { .roles { grid-template-columns: 1fr 1fr; align-items: start; } }
+.role { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 1.25rem 1.5rem 1.5rem; }
+.role.wide { grid-row: span 2; }
+.role > p { color: var(--muted); margin-top: 8px; }
+.role .tag { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+.talk { margin-top: 16px; background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem 1.25rem; }
+.talk .q { font-size: 19px; line-height: 1.45; font-weight: 500; }
+.opts { display: grid; gap: 8px; margin-top: 12px; }
+.opt { font: inherit; color: var(--ink); text-align: left; background: var(--card); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; line-height: 1.5; transition: transform 140ms var(--ease), border-color 140ms var(--ease); }
 .opt:hover { border-color: var(--ink); }
-.opt[disabled] { opacity: 0.45; cursor: default; }
-.ans { margin-top: 16px; min-height: 3.4em; }
-.talk .foot { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 20px; justify-content: space-between; }
-.said { margin-top: 12px; background: var(--deep); border-radius: 12px; padding: 1rem 1.25rem; color: var(--ink); }
+.opt[disabled] { opacity: 0.5; cursor: default; }
+.ans { margin-top: 12px; min-height: 3.4em; }
+.talk .foot { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line-strong); font-size: 14px; color: var(--muted); }
+.pop { display: inline-block; animation: pop 420ms var(--ease); }
+@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.said { margin-top: 12px; background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem; color: var(--ink); }
 .said span { display: block; }
+.days { display: grid; gap: 3px; margin-top: 16px; }
+.days i { display: block; height: 6px; background: var(--mid); border-radius: 3px; }
+.days i:first-child { background: var(--ink); }
+.lever { font-size: clamp(22px, 3vw, 30px); line-height: 1.35; font-weight: 500; letter-spacing: -0.01em; margin-top: 48px; max-width: 22em; text-wrap: balance; }
+html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.55; }
 
-/* evidence: the one light band */
-.paper { background: var(--paper); color: var(--paper-ink); }
-.paper .wrap { padding-top: 80px; padding-bottom: 80px; }
-.paper h2 + p { color: var(--paper-muted); }
-.ev { display: grid; gap: 0; margin-top: 40px; border-top: 1px solid var(--paper-line); }
+/* evidence */
+.proof { background: var(--plum); color: var(--plum-ink); }
+.proof .wrap { padding-top: 80px; padding-bottom: 80px; }
+.proof h2 + p { color: var(--plum-muted); }
+.ev { display: grid; gap: 0; margin-top: 40px; border-top: 1px solid rgba(250, 245, 255, 0.16); }
 @media (min-width: 820px) { .ev { grid-template-columns: 1fr 1fr; column-gap: 48px; } }
-.ev li { padding: 24px 0; border-bottom: 1px solid var(--paper-line); }
-.ev .fig { display: block; font-size: clamp(44px, 6vw, 64px); line-height: 1.1; font-weight: 500; letter-spacing: -0.03em; }
-.ev p { margin-top: 8px; max-width: 30em; }
-.ev cite { display: block; font-style: normal; font-size: 14px; color: var(--paper-muted); margin-top: 8px; }
-.caveat { margin-top: 24px; max-width: 40em; color: var(--paper-muted); }
+.ev li { padding: 24px 0; border-bottom: 1px solid rgba(250, 245, 255, 0.16); }
+.ev .fig { display: block; font-size: clamp(44px, 6vw, 60px); line-height: 1.1; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.ev p { margin-top: 8px; max-width: 28em; }
+.ev cite { display: block; font-style: normal; font-size: 14px; color: var(--plum-muted); margin-top: 8px; }
+.caveat { margin-top: 24px; max-width: 40em; color: var(--plum-muted); }
 
-/* end */
-.end .wrap { padding-top: 88px; padding-bottom: 56px; }
-.end p { color: var(--muted); margin-top: 12px; max-width: 36em; }
-.end .small { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); max-width: none; display: flex; flex-wrap: wrap; gap: 4px 24px; justify-content: space-between; }
+.end .wrap { padding-top: 88px; padding-bottom: 48px; }
+.end h2 + p { max-width: 32em; }
+.end .small { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 24px; justify-content: space-between; }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   .seg, .btn, .lang, .ghost .pupils { transition: none; }
-  .pop, .btn.up, .rip { animation: none; }
+  .pop, .btn.up { animation: none; }
   .rip { display: none; }
 }
 </style>
 </head>
 <body>
 
-<header class="bar">
+<header>
   <div class="wrap bar-in">
     <a class="bar-name" href="#top"><img src="icon-192.png" alt=""><span>Doomscroll Rehab</span></a>
-    <div class="gauge">
-      <svg viewBox="-130 -130 260 260" aria-hidden="true" data-spin></svg>
-      <span class="lab" data-zh="這一頁現在的載入速度">this page is loading at</span>
-      <span class="num js-speed">3.0 Mbps</span>
-    </div>
     <div class="bar-right">
       <button class="lang" id="lang" type="button" aria-label="Switch language">中文</button>
       <a href="https://github.com/Yuki66666666/doomscrolling-rehab">GitHub</a>
@@ -210,20 +188,21 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
 <div class="wrap">
   <section class="hero">
     <div>
-      <h1 data-zh="越往下滑，這一頁就越慢。">This page gets slower the further you scroll.</h1>
-      <p class="lede" data-zh="你的短影音也會這樣。Doomscroll Rehab 不封鎖 Reels、TikTok、Threads，只讓它們隨著你待的每一分鐘變慢、變糊，直到放下手機變成最輕鬆的那件事。">So will your feed. Doomscroll Rehab does not block Reels, TikTok or Threads. It makes them slower and blurrier every minute you stay, until putting the phone down is the easy part.</p>
+      <h1 data-zh="終於放得下手機。">Finally put your phone down.</h1>
+      <p class="lede" data-zh="Doomscroll Rehab 讓短影音越看越慢、越看越糊。不封鎖、不鎖機，也不用跟自己的意志力打架。看到後來就是不好看了，你自然會停。">Doomscroll Rehab makes short videos slower and blurrier the longer you watch. No blocking, no lock screen, no fight with your own willpower. After a while it is just not fun anymore, and you stop.</p>
       <div class="cta-row">
-        <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="到 GitHub 看程式碼">See the code on GitHub</a>
-        <span class="small muted" data-zh="往下滑，看看它會變成怎樣。">Scroll down and watch what happens to it.</span>
+        <a class="cta btn" href="#how" data-zh="看它怎麼運作">See how it works</a>
+        <a class="plain" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="在 GitHub 上看專案">View the project on GitHub</a>
       </div>
+      <p class="small muted" style="margin-top:20px" data-zh="適用 Instagram Reels、TikTok、Threads、紅果。訊息、地圖和其他 App 完全不受影響。">Works on Instagram Reels, TikTok, Threads and Hongguo. Messages, maps and every other app stay normal.</p>
     </div>
-    <div>
-      <div class="ghost" role="img" aria-label="A sleepy ghost holding a phone. Its video gets blurrier and its loading spinner dims as you scroll this page.">
+    <div class="stagecard">
+      <div class="ghost" role="img" aria-label="A ghost watching short videos on its phone. The video gets blurrier and the ghost gets sleepier the longer it watches.">
         <svg viewBox="60 130 860 790" aria-hidden="true">
           <path class="body" d="M96 782C96 716 172 690 198 596C244 420 330 284 482 284C640 284 728 404 758 566L792 770C800 850 706 878 566 868C474 862 420 896 334 838C292 810 250 852 190 852C132 852 96 824 96 782Z"/>
           <path class="lid" d="M408 498H520M596 498H704"/>
           <g class="pupils" id="pupils"><path class="dark" d="M424 506a40 40 0 0 0 80 0ZM612 506a40 40 0 0 0 80 0Z"/></g>
-          <g transform="translate(752 262)" stroke-width="30" stroke-linecap="round" data-spin></g>
+          <g transform="translate(752 262)" stroke-width="30" stroke-linecap="round" id="spin"></g>
         </svg>
         <div class="phone"><canvas id="reel" width="190" height="320"></canvas></div>
         <svg viewBox="60 130 860 790" aria-hidden="true">
@@ -231,113 +210,126 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
           <circle class="hand" cx="806" cy="806" r="74"/>
         </svg>
       </div>
-      <p class="readout"><span class="num big js-speed" id="big">3.0 Mbps</span><span class="small muted" id="mood" data-zh="全速。它還醒著。">Full speed. Still awake.</span></p>
+      <p class="now"><b id="nowT">Just opened the app</b><span id="nowS">Everything looks great.</span></p>
     </div>
   </section>
 </div>
 
-<section class="blk">
+<section class="blk" id="how">
   <div class="wrap">
-    <h2 data-zh="不封鎖、不鎖機，只是影片越來越難看。">No block. No lock. Just worse video.</h2>
-    <p data-zh="前幾分鐘全速。之後短影音 App 的連線每分鐘降一級，一路降到比它們最低畫質還低的速度。其他東西都不受影響。">The first few minutes run at full speed. After that the connection to short-video apps drops every minute, down to a speed below their lowest video quality. Everything else is left alone.</p>
-    <div class="two">
-      <div>
-        <div class="plot" id="plot">
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path id="curve" d="M0 0 H10 L80 100 H100"/></svg>
-          <span class="ylab top num">3 Mbps</span>
-          <span class="ylab bot num" data-zh="底速 40 kbps">40 kbps floor</span>
-          <div class="dot" id="dot" aria-hidden="true"></div>
-        </div>
-        <div class="xlab"><span data-zh="開始滑">session starts</span><span data-zh="圓點就是你">you are the dot</span><span data-zh="還在滑">still scrolling</span></div>
-      </div>
-      <ul class="stats">
-        <li><span class="n num">3 Mbps → 40 kbps</span><span class="t" data-zh="每分鐘降一級。訊息、地圖、搜尋維持全速。">One step down every minute. Messages, maps and search stay at full speed.</span></li>
-        <li><span class="n num" data-zh="10 分鐘">10 min</span><span class="t" data-zh="離開這麼久，就重設回全速。">away resets the session to full speed.</span></li>
-        <li><span class="n num">7%</span><span class="t"><span data-zh="全速的時間每天比前一天短這麼多，連續 14 天。">shorter full-speed window each day, for 14 days.</span><span class="days" id="days" aria-hidden="true"></span></span></li>
-      </ul>
-    </div>
+    <h2 data-zh="它不會擋你，只會讓影片越來越不值得看。">It never stops you. It just makes the videos less worth watching.</h2>
+    <p data-zh="你照常打開 App。差別只在：你待得越久，影片就越慢、越糊。">You open your apps like always. The only difference: the longer you stay, the slower and blurrier the videos get.</p>
+    <ul class="moments">
+      <li class="moment">
+        <div class="mini"><canvas data-q="1" width="150" height="266"></canvas></div>
+        <div><h3 data-zh="剛打開">At first</h3><p data-zh="前幾分鐘一切正常。回個訊息、看一兩支影片，完全沒事。">The first few minutes are completely normal. Check a message, watch a video or two. No problem.</p></div>
+      </li>
+      <li class="moment">
+        <div class="mini"><canvas data-q="0.42" width="150" height="266"></canvas></div>
+        <div><h3 data-zh="幾分鐘後">A few minutes in</h3><p data-zh="每過一分鐘，影片就再慢一點、糊一點。你會開始覺得卡卡的。">Every minute, the videos load a little slower and look a little blurrier. It starts to feel annoying.</p></div>
+      </li>
+      <li class="moment">
+        <div class="mini"><canvas data-q="0.06" width="150" height="266"></canvas></div>
+        <div><h3 data-zh="再滑下去">Still scrolling</h3><p data-zh="現在等一支影片的時間，已經比影片本身還無聊。你把手機放下了。">Now waiting for a video is more boring than the video. You put the phone down.</p></div>
+      </li>
+    </ul>
+    <p class="aside muted" data-zh="離開十分鐘，一切恢復正常。這不是處罰，只是不讓你一直滑下去。">Take a ten minute break and everything is back to normal. It is not a punishment. It just will not let the scroll go on forever.</p>
   </div>
 </section>
 
 <section class="blk">
   <div class="wrap">
-    <h2 data-zh="牆可以翻過去，無聊翻不過去。">You can beat a wall. You cannot beat boredom.</h2>
+    <h2 data-zh="這是你嗎？">Does this sound like you?</h2>
+    <ul class="you">
+      <li data-zh="想說只看一支影片，抬頭已經過了四十分鐘。">You open the app for one video and look up forty minutes later.</li>
+      <li data-zh="設過螢幕使用時間上限，然後每次都按「再 15 分鐘」。">You set a screen time limit, then tap "15 more minutes" every single time.</li>
+      <li data-zh="刪過 App，然後又裝回來。">You deleted the app. Then you reinstalled it.</li>
+    </ul>
+    <p class="turn" data-zh="你缺的不是意志力。你需要的是那些影片沒那麼好看。">You do not need more willpower. You need the videos to be a little less good.</p>
+  </div>
+</section>
+
+<section class="blk">
+  <div class="wrap">
+    <h2 data-zh="為什麼不直接封鎖就好？">Why not just block the apps?</h2>
+    <p data-zh="因為你知道怎麼關掉封鎖。">Because you know how to turn a blocker off.</p>
     <div class="cmp">
       <div>
         <h3 data-zh="封鎖">Blocking</h3>
         <div class="pills" data-pills="block" aria-hidden="true"></div>
-        <p data-zh="計時器和鎖，都是一道有門的牆。你知道門在哪，打開它，門後的內容和原本一樣好看。所以封鎖類 App 最後都被關掉。">A timer or a lock is a wall with a door in it. You know where the door is, you open it, and the feed behind it is exactly as good as before. So blockers get switched off.</p>
+        <div class="pills-cap" aria-hidden="true"><span data-zh="好看">fun</span><span data-zh="被擋住">blocked</span></div>
+        <p data-zh="一道牆突然擋在你面前。你覺得被管，於是把它關掉，回到原點。">A wall suddenly appears. It feels like being told off, so you switch it off and you are back where you started.</p>
       </div>
       <div class="pick">
-        <h3 data-zh="變慢">Slowing</h3>
+        <h3 data-zh="慢慢變慢">Slowing down</h3>
         <div class="pills" data-pills="slow" aria-hidden="true"></div>
-        <p data-zh="內容還在，只是變得不值得。沒有哪一刻是「被拒絕」、可以讓你去吵的，只有一支慢到你不想等的影片。你是自己走的。">The feed is still there. It just stops being worth it. There is no moment of refusal to argue with, only a video that takes longer to arrive than you care to wait. You leave on your own.</p>
+        <div class="pills-cap" aria-hidden="true"><span data-zh="好看">fun</span><span data-zh="不值得等">not worth the wait</span></div>
+        <p data-zh="沒有人擋你，沒有東西可以吵。影片只是慢慢變得不值得等。最後是你自己決定停的。">Nobody stops you and there is nothing to argue with. The videos just slowly stop being worth the wait. Stopping is your own decision.</p>
       </div>
     </div>
-    <p class="lever" data-zh="每家科技公司都知道，內容慢一點，人就滑得少一點。我們把這支拉桿交到你手上。">Every tech company knows a slower feed means less scrolling. We hand that lever to you.</p>
   </div>
 </section>
 
 <section class="blk">
   <div class="wrap">
-    <h2 data-zh="想把速度要回來？先講你要做什麼。">Want speed back? Say what it is for.</h2>
-    <p data-zh="限速本身只是一般的程式。AI 決定的是咬多緊、對誰、什麼時候放手。它有三個角色。">The throttle itself is plain code. The AI decides how hard it bites, for whom, and when it lets go. It has three jobs.</p>
-    <dl class="roles">
-      <div class="role">
-        <dt><h3 data-zh="教練 Coach">Coach</h3></dt>
-        <dd data-zh="你用自己的話說你平常怎麼滑。教練把它變成你的曲線：全速能撐多久、每天收緊多少、降得多陡、底速在哪。">You describe how you scroll, in your own words. The Coach turns that into your curve: how long full speed lasts, how much it tightens each day, how steep the drop is and where the floor sits.</dd>
-      </div>
-      <div class="role">
-        <dt><h3 data-zh="協商員 Negotiator">Negotiator</h3></dt>
-        <dd>
-          <span data-zh="它會問你接下來幾分鐘想做什麼。講得出具體理由和停下來的時間點，最多換到 10 分鐘。一天三次，不說教。在這一頁試試看：">It asks what you want from the next few minutes. A specific reason and a stopping point earn up to 10 minutes. Three boosts a day. No lecturing. Try it on this page:</span>
-          <div class="talk">
-            <p class="who" data-zh="協商員">Negotiator</p>
-            <p class="q" data-zh="接下來幾分鐘，你想做什麼？">What do you want from the next few minutes?</p>
-            <div class="opts">
-              <button class="opt btn" type="button" data-kind="vague" data-zh="我就是想繼續滑。">I just want to keep scrolling.</button>
-              <button class="opt btn" type="button" data-kind="clear" data-zh="找到我姊傳的水餃食譜，存起來就停。">Find the dumpling recipe my sister sent, and stop once it is saved.</button>
-            </div>
-            <p class="ans" id="ans" aria-live="polite"></p>
-            <div class="foot"><span><span data-zh="今天還能加速：">Boosts left today: </span><span class="num" id="left" style="display:inline-block">3</span></span><span id="boostnote"></span></div>
+    <h2 data-zh="有一個 AI 陪你，不是管你。">An AI that is on your side, not on your case.</h2>
+    <p data-zh="它做三件事：照你的習慣調整、在你真的需要時放行、事後老實告訴你發生了什麼。">It does three things: fits the plan to your habits, lets you through when you really need it, and tells you honestly what happened afterwards.</p>
+    <div class="roles">
+      <div class="role wide">
+        <h3 data-zh="真的需要時，開口就好">When you really need it, just ask</h3>
+        <span class="tag" data-zh="協商員 Negotiator">Negotiator</span>
+        <p data-zh="要查東西、要回朋友傳的影片？跟它說你要做什麼、做完就停。理由具體，就還你最多 10 分鐘的正常速度，一天三次。它不會唸你。試試看：">Need to look something up, or watch what a friend sent? Tell it what you want to do and when you will stop. A real reason gets you up to 10 minutes of normal speed, three times a day. It never lectures. Try it:</p>
+        <div class="talk">
+          <p class="q" data-zh="接下來幾分鐘，你想做什麼？">What do you want from the next few minutes?</p>
+          <div class="opts">
+            <button class="opt btn" type="button" data-kind="vague" data-zh="我就是想繼續滑。">I just want to keep scrolling.</button>
+            <button class="opt btn" type="button" data-kind="clear" data-zh="找到我姊傳的水餃食譜，存起來就停。">Find the dumpling recipe my sister sent, and stop once it is saved.</button>
           </div>
-        </dd>
+          <p class="ans" id="ans" aria-live="polite"></p>
+          <p class="foot"><span data-zh="今天還能要回速度：">Speed-ups left today: </span><span id="left">3</span></p>
+        </div>
       </div>
       <div class="role">
-        <dt><h3 data-zh="報告 Report">Report</h3></dt>
-        <dd>
-          <span data-zh="把你對協商員說的，和你後來實際做的，擺在一起。不打分數。">Puts what you told the Negotiator next to what you then did. No score.</span>
-          <p class="said"><span data-zh="你說：找到食譜，存起來就停。">You said: find the recipe and stop once it is saved.</span><span data-zh="你做了：兩分鐘就存好，然後又多看了九分鐘。">You did: saved it in two minutes, then kept watching for nine more.</span></p>
-        </dd>
+        <h3 data-zh="照你的習慣來">It fits your habits</h3>
+        <span class="tag" data-zh="教練 Coach">Coach</span>
+        <p data-zh="用你自己的話告訴它你平常怎麼滑。它決定要多溫和或多嚴格，然後每天收緊一點點，連續 14 天。到第 14 天，正常速度的時間不到一開始的一半。">Tell it how you scroll, in your own words. It decides how gentle or strict to be, then tightens a little every day for 14 days. By day 14 your normal-speed time is less than half of where you started.</p>
+        <div class="days" id="days" aria-hidden="true"></div>
       </div>
-    </dl>
+      <div class="role">
+        <h3 data-zh="老實的回顧，不打分數">An honest look back, no score</h3>
+        <span class="tag" data-zh="報告 Report">Report</span>
+        <p data-zh="把你說要做的，和你後來真的做的，擺在一起給你看。">It puts what you said you would do next to what you actually did.</p>
+        <p class="said"><span data-zh="你說：找到食譜，存起來就停。">You said: find the recipe and stop once it is saved.</span><span data-zh="你做了：兩分鐘就存好，然後又多看了九分鐘。">You did: saved it in two minutes, then kept watching for nine more.</span></p>
+      </div>
+    </div>
+    <p class="lever" data-zh="每家科技公司都知道，影片慢一點，人就滑得少一點。我們把這個開關交到你手上。">Every tech company knows a slower feed means less scrolling. We put that switch in your hands.</p>
   </div>
 </section>
 
-<section class="paper" id="evidence">
+<section class="proof" id="evidence">
   <div class="wrap">
-    <h2 data-zh="延遲有效，這一點已經有人證明了。">Delay works. That part is already proven.</h2>
-    <p data-zh="還沒有人測過的是「網路限速」本身。這個 App 就是那個實驗。">What nobody has tested yet is network throttling itself. This app is that experiment.</p>
+    <h2 data-zh="讓東西慢一點，真的有用嗎？">Does making things slower really work?</h2>
+    <p data-zh="研究說：小小的等待就足以改變習慣。直接把網路調慢這件事還沒有人研究過，這個 App 就是在做這個實驗。">Research says small waits are enough to change habits. Slowing the connection itself has not been studied yet. This app is that experiment.</p>
     <ul class="ev">
       <li>
-        <span class="fig num">36%</span>
-        <p data-zh="打開 App 前多等一下，讓人放棄了 36% 的開啟嘗試。六週內，嘗試次數少了 37%。光是延遲就有效，勸導訊息沒有。">of attempts to open an app were abandoned after a short delay. Attempts fell 37% over six weeks. The delay alone worked. The persuasive message did not.</p>
+        <span class="fig">36%</span>
+        <p data-zh="打開 App 前只要多等一下，人們就放棄了 36% 的開啟。六週後，想打開的次數少了 37%。光是等待就有效，勸導的話沒有用。">of the time, people gave up opening an app when they had to wait a moment first. After six weeks they tried 37% less often. The wait alone worked. The motivational message did not.</p>
         <cite>Grüning, Riedel, Lorenz-Spreen. PNAS, 2023.</cite>
       </li>
       <li>
-        <span class="fig num">31%</span>
+        <span class="fig">31%</span>
         <p data-zh="社群媒體的使用量中，有 31% 被歸因於自制力問題。">of social media use is attributed to self-control problems.</p>
         <cite>Allcott, Gentzkow, Song. American Economic Review, 2022.</cite>
       </li>
       <li>
-        <span class="fig num">0.2–0.6%</span>
-        <p data-zh="多加 100 到 400 毫秒的延遲後，每位使用者的搜尋次數少了 0.2% 到 0.6%。">fewer searches per user when 100 to 400 ms of latency was added.</p>
-        <cite>Brutlag. Google, 2009.</cite>
+        <span class="fig" data-zh="45 分鐘">45 min</span>
+        <p data-zh="每天少用一小時的人，四個月後每天仍少用 45 分鐘；整整戒掉一週的人，少 38 分鐘。少用一點，至少和完全戒掉一樣持久。">less phone time per day, four months later, for people who cut back by one hour a day. People who quit completely for a week: 38 minutes less. Cutting back lasted at least as well as quitting.</p>
+        <cite>Brailovskaia et al. Journal of Experimental Psychology: Applied, 2022. N=619.</cite>
       </li>
       <li>
-        <span class="fig num" data-zh="45 分鐘">45 min</span>
-        <p data-zh="每天少用一小時的人，四個月後每天仍少用 45 分鐘；完全戒掉一週的人，少 38 分鐘。少用一點，至少和戒斷一樣持久。">less phone use per day, four months later, for people who cut one hour a day. People who quit for a week: 38 minutes less. Cutting back lasted at least as well as quitting.</p>
-        <cite>Brailovskaia et al. Journal of Experimental Psychology: Applied, 2022. N=619.</cite>
+        <span class="fig">0.2–0.6%</span>
+        <p data-zh="Google 把搜尋結果延遲 0.1 到 0.4 秒，每個人的搜尋次數就少了 0.2% 到 0.6%。連這麼小的延遲都有影響。">fewer searches per person when Google delayed results by 0.1 to 0.4 seconds. Even a delay that small changes behaviour.</p>
+        <cite>Brutlag. Google, 2009.</cite>
       </li>
     </ul>
   </div>
@@ -345,55 +337,48 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
 
 <footer class="end">
   <div class="wrap">
-    <h2><span data-zh="你滑到底了，現在的速度是 ">You hit the bottom at </span><span class="num js-speed">3.0 Mbps</span><span data-zh="。">.</span></h2>
-    <p data-zh="正式版離開十分鐘就重設。這一頁回到頂端就重設。">The real thing resets after ten minutes away. This page resets when you go back to the top.</p>
+    <h2 data-zh="不用戒掉，只要比較容易停下來。">You do not have to quit. It just gets easier to stop.</h2>
+    <p class="muted" style="margin-top:16px;font-size:19px" data-zh="Doomscroll Rehab 目前是可以實際運作的原型，程式碼全部公開。">Doomscroll Rehab is a working prototype for now, and all of the code is open.</p>
     <div class="cta-row">
-      <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="到 GitHub 看程式碼">See the code on GitHub</a>
-      <a href="#top" data-zh="回到全速">Back to full speed</a>
+      <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="在 GitHub 上看專案">View the project on GitHub</a>
+      <a class="plain" href="#top" data-zh="回到最上面">Back to the top</a>
     </div>
-    <p class="small muted"><span data-zh="在台北的 c0mpiled-18（YC Startup School Hackathon）做出來的。">Built at c0mpiled-18, the YC Startup School Hackathon in Taipei.</span><a href="https://github.com/Yuki66666666/doomscrolling-rehab">github.com/Yuki66666666/doomscrolling-rehab</a></p>
+    <p class="small muted"><span data-zh="在台北的 c0mpiled-18（YC Startup School Hackathon）做出來的。底層做法：前幾分鐘全速，之後每分鐘把短影音的連線從 3 Mbps 一路降到 40 kbps。">Built at c0mpiled-18, the YC Startup School Hackathon in Taipei. Under the hood: full speed for the first few minutes, then the connection to short-video apps steps down each minute from 3 Mbps to 40 kbps.</span></p>
   </div>
 </footer>
 </main>
 
-<div class="buddy" id="buddy" aria-hidden="true">
-  <svg viewBox="120 90 800 560">
-    <path class="body" d="M170 650V560C170 380 310 250 512 250C714 250 854 380 854 560V650Z"/>
-    <path class="lid" d="M318 500H470M554 500H706"/>
-    <g class="pupils"><path class="dark" d="M338 512a56 56 0 0 0 112 0ZM574 512a56 56 0 0 0 112 0Z"/></g>
-    <g transform="translate(800 210)" stroke-width="34" stroke-linecap="round" data-spin></g>
-  </svg>
-  <span class="num js-speed">3.0 Mbps</span>
-</div>
-
 <script>
 (function () {
-  var FULL = 3000, FLOOR = 40, STEPS = 12, P0 = 0.08, P1 = 0.8;
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var NS = 'http://www.w3.org/2000/svg';
 
   // ---- language -------------------------------------------------------
   var STR = {
     en: {
-      title: 'Doomscroll Rehab',
-      idle: 'On this page a boost lasts 20 seconds.',
-      boost: function (n) { return 'Full speed for ' + n + ' s'; },
-      over: 'Boost over. The curve picks up where you are.',
-      vague: 'That is honest, but it is not a reason and it has no end. Speed stays where it is.',
-      clear: 'Specific, and it ends. Full speed is back, then the curve resumes.',
-      last: 'Full speed is back. That was the third boost today, so this is the last one until tomorrow.',
-      mood: ['Full speed. Still awake.', 'Slowing. Eyelids getting heavy.', 'Barely loading. Barely awake.', 'At the floor. Time to put it down.'],
+      title: 'Doomscroll Rehab: finally put your phone down',
+      vague: 'That is honest, but it is not really a reason, and it has no end. Videos stay slow for now.',
+      clear: 'That is specific, and it has an end. Normal speed is back for a few minutes.',
+      last: 'Normal speed is back. That was your third one today, so that is it until tomorrow.',
+      stages: [
+        ['Just opened the app', 'Everything looks great.'],
+        ['A few minutes in', 'Getting slower. A bit blurry.'],
+        ['Still scrolling', 'Barely loading. Eyelids heavy.'],
+        ['Not worth it anymore', 'Time to put the phone down.']
+      ],
       other: '中文'
     },
     zh: {
-      title: 'Doomscroll Rehab：滑越久，載入越慢',
-      idle: '在這一頁，一次加速維持 20 秒。',
-      boost: function (n) { return '全速中，還有 ' + n + ' 秒'; },
-      over: '加速結束，曲線從你現在的位置接著走。',
-      vague: '很誠實，但這不是理由，也沒有終點。速度維持原樣。',
-      clear: '夠具體，也有終點。先還你全速，之後曲線繼續。',
-      last: '先還你全速。這是今天第三次，明天之前沒有了。',
-      mood: ['全速。它還醒著。', '變慢了，眼皮開始重。', '快載不動，也快睡著了。', '到底速了，該放下了。'],
+      title: 'Doomscroll Rehab：終於放得下手機',
+      vague: '很誠實，但這不算理由，也沒有終點。影片先維持慢的。',
+      clear: '夠具體，也有終點。先還你幾分鐘正常速度。',
+      last: '還你正常速度。這是今天第三次，明天之前沒有了。',
+      stages: [
+        ['剛打開 App', '一切都很順。'],
+        ['滑了幾分鐘', '開始變慢，有點糊。'],
+        ['還在滑', '快載不動了，眼皮也重了。'],
+        ['不值得再等了', '該把手機放下了。']
+      ],
       other: 'EN'
     }
   };
@@ -403,16 +388,15 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
   for (var a = 0; a < nodes.length; a++) nodes[a].setAttribute('data-en', nodes[a].textContent);
   var langBtn = document.getElementById('lang');
   var ans = document.getElementById('ans'), ansKey = '';
-  var note = document.getElementById('boostnote'), noteKey = 'idle';
-  var mood = document.getElementById('mood'), moodIdx = 0;
+  var nowT = document.getElementById('nowT'), nowS = document.getElementById('nowS'), stage = 0;
+  function showStage() { nowT.textContent = STR[lang].stages[stage][0]; nowS.textContent = STR[lang].stages[stage][1]; }
   function applyLang() {
     document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
     for (var i = 0; i < nodes.length; i++) nodes[i].textContent = nodes[i].getAttribute(lang === 'zh' ? 'data-zh' : 'data-en');
     document.title = STR[lang].title;
     langBtn.textContent = STR[lang].other;
     ans.textContent = ansKey ? STR[lang][ansKey] : '';
-    if (noteKey !== 'boost') note.textContent = STR[lang][noteKey];
-    mood.textContent = STR[lang].mood[moodIdx];
+    showStage();
   }
   langBtn.addEventListener('click', function () {
     lang = lang === 'zh' ? 'en' : 'zh';
@@ -420,66 +404,73 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
     applyLang();
   });
 
-  // ---- the spinner from the icon, reused as the speed gauge -------------
-  var segs = [];
-  var spins = document.querySelectorAll('[data-spin]');
-  for (var s0 = 0; s0 < spins.length; s0++) {
-    var mini = spins[s0].tagName.toLowerCase() === 'svg';
-    var set = [];
-    for (var i0 = 0; i0 < 8; i0++) {
-      var ang = (-90 - i0 * 45) * Math.PI / 180, l = document.createElementNS(NS, 'line');
-      l.setAttribute('x1', (52 * Math.cos(ang)).toFixed(1)); l.setAttribute('y1', (52 * Math.sin(ang)).toFixed(1));
-      l.setAttribute('x2', (104 * Math.cos(ang)).toFixed(1)); l.setAttribute('y2', (104 * Math.sin(ang)).toFixed(1));
-      l.setAttribute('class', 'seg on');
-      if (mini) { l.setAttribute('stroke-width', '34'); l.setAttribute('stroke-linecap', 'round'); }
-      spins[s0].appendChild(l); set.push(l);
-    }
-    segs.push(set);
+  // ---- the little video everyone is watching ------------------------------
+  function hill(c, base, amp, freq, phase, color) {
+    c.fillStyle = color; c.beginPath(); c.moveTo(0, 480);
+    for (var x = 0; x <= 270; x += 6) c.lineTo(x, base + Math.sin(x * freq + phase) * amp);
+    c.lineTo(270, 480); c.closePath(); c.fill();
   }
-  var litNow = 8;
-  function light(n) {
-    if (n === litNow) return;
-    litNow = n;
-    for (var g = 0; g < segs.length; g++) for (var i = 0; i < 8; i++) segs[g][i].setAttribute('class', i < n ? 'seg on' : 'seg');
+  function scene(c, t) {
+    c.fillStyle = '#8B5CF6'; c.fillRect(0, 0, 270, 480);
+    c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(190, 110, 46, 0, 6.2832); c.fill();
+    var cx = (t * 18) % 360 - 80;
+    c.fillStyle = '#EDE9FE'; c.fillRect(cx, 190, 70, 16);
+    hill(c, 300, 30, 0.022, t * 0.6, '#6D43D8');
+    hill(c, 356, 24, 0.031, t * 1.2 + 1, '#4C2A9E');
+    hill(c, 420, 14, 0.04, t * 2.4 + 2, '#2E1A47');
+    var by = 380 - Math.abs(Math.sin(t * 3.2)) * 150;
+    c.fillStyle = '#FF2DD0'; c.beginPath(); c.arc(100, by, 30, 0, 6.2832); c.fill();
+  }
+  var off = document.createElement('canvas'), octx = off.getContext('2d');
+  // q is quality from 1 (sharp) to 0 (unwatchable); low q is drawn tiny and scaled up, so it looks blocky
+  function paint(cv, q, t) {
+    var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+    var scale = 0.04 + 0.96 * Math.pow(q, 1.7);
+    var lw = Math.max(4, Math.round(W * scale)), lh = Math.max(7, Math.round(H * scale));
+    off.width = lw; off.height = lh;
+    octx.setTransform(lw / 270, 0, 0, lh / 480, 0, 0);
+    scene(octx, t);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(off, 0, 0, W, H);
+  }
+  function fit(cv) {
+    var r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+    var w = Math.max(60, Math.round(r.width * dpr)), h = Math.round(w * cv.height / cv.width);
+    if (cv.width !== w) { cv.width = w; cv.height = h; }
+  }
+  var minis = document.querySelectorAll('canvas[data-q]');
+  function paintMinis() { for (var i = 0; i < minis.length; i++) { fit(minis[i]); paint(minis[i], parseFloat(minis[i].getAttribute('data-q')), 1.3); } }
+
+  // ---- hero: one session, played on a loop --------------------------------
+  var segs = [], spin = document.getElementById('spin');
+  for (var i0 = 0; i0 < 8; i0++) {
+    var ang = (-90 - i0 * 45) * Math.PI / 180, l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', (52 * Math.cos(ang)).toFixed(1)); l.setAttribute('y1', (52 * Math.sin(ang)).toFixed(1));
+    l.setAttribute('x2', (104 * Math.cos(ang)).toFixed(1)); l.setAttribute('y2', (104 * Math.sin(ang)).toFixed(1));
+    l.setAttribute('class', 'seg on'); spin.appendChild(l); segs.push(l);
+  }
+  var pupils = document.getElementById('pupils');
+  var reel = document.getElementById('reel');
+  var Q = [1, 0.5, 0.16, 0.02], HOLD = 3200, boostUntil = 0;
+  var lastDraw = -1e9, tt = 0, shownQ = -1, start = null;
+  function setStage(n) {
+    stage = n; showStage();
+    var q = Q[n], lit = n === 3 ? 0 : Math.max(1, Math.round(q * 8));
+    for (var i = 0; i < 8; i++) segs[i].setAttribute('class', i < lit ? 'seg on' : 'seg');
+    pupils.style.transform = 'scaleY(' + (0.12 + 0.88 * q).toFixed(2) + ')';
+  }
+  function frame(now) {
+    if (start === null) start = now;
+    var n = now < boostUntil ? 0 : Math.floor(((now - start) / HOLD) % 4);
+    if (n !== stage) setStage(n);
+    var q = Q[stage], fps = q < 0.05 ? 0.5 : 3 + 57 * q;
+    if (now - lastDraw >= 1000 / fps || q !== shownQ) { tt = now / 1000; lastDraw = now; shownQ = q; paint(reel, q, tt); }
+    window.requestAnimationFrame(frame);
   }
 
-  // ---- the curve --------------------------------------------------------
-  function curveSpeed(p) {
-    if (p <= P0) return FULL;
-    var k = Math.min(STEPS, Math.ceil((p - P0) / ((P1 - P0) / STEPS)));
-    return FULL * Math.pow(FLOOR / FULL, k / STEPS);
-  }
-  function quality(s) { return Math.max(0, Math.min(1, Math.log(s / FLOOR) / Math.log(FULL / FLOOR))); }
-  function label(s) { return s >= 1000 ? (s / 1000).toFixed(1) + ' Mbps' : Math.round(s) + ' kbps'; }
-  function progress() {
-    var max = document.documentElement.scrollHeight - window.innerHeight;
-    if (max <= 0) return 0;
-    return Math.max(0, Math.min(1, (window.pageYOffset || 0) / max));
-  }
-
-  var speedEls = document.querySelectorAll('.js-speed');
-  var dot = document.getElementById('dot');
-  var pupils = document.querySelectorAll('.pupils');
-  var buddy = document.getElementById('buddy'), heroGhost = document.querySelector('.ghost');
-  var big = document.getElementById('big');
-  var boostUntil = 0, boosts = 3;
-  var state = { q: 1 }, lastLabel = '';
-
-  var d = '';
-  for (var i = 0; i <= 400; i++) {
-    var pp = i / 400, y = (1 - quality(curveSpeed(pp))) * 100;
-    d += (i ? 'L' : 'M') + (pp * 100).toFixed(2) + ' ' + y.toFixed(2);
-  }
-  document.getElementById('curve').setAttribute('d', d);
-
+  // ---- small drawings ------------------------------------------------------
   var days = document.getElementById('days');
-  for (var n = 0; n < 14; n++) {
-    var b = document.createElement('i');
-    b.style.width = (Math.pow(0.93, n) * 100).toFixed(1) + '%';
-    days.appendChild(b);
-  }
-
-  // blocking is full then nothing; slowing eases down to a floor
+  for (var n = 0; n < 14; n++) { var b = document.createElement('i'); b.style.width = (Math.pow(0.93, n) * 100).toFixed(1) + '%'; days.appendChild(b); }
   var pills = document.querySelectorAll('[data-pills]');
   for (var pi = 0; pi < pills.length; pi++) {
     var slow = pills[pi].getAttribute('data-pills') === 'slow', html = '';
@@ -490,132 +481,45 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.5; }
     pills[pi].innerHTML = html;
   }
 
-  function pop(el) { if (reduce) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
-
-  function update(now) {
-    var p = progress();
-    var boosted = now < boostUntil;
-    var s = boosted ? FULL : curveSpeed(p);
-    var q = quality(s);
-    state.q = q;
-    var text = label(s);
-    if (text !== lastLabel) {
-      lastLabel = text;
-      for (var j = 0; j < speedEls.length; j++) speedEls[j].textContent = text;
-      light(q < 0.02 ? 0 : Math.max(1, Math.round(q * 8)));
-      for (var u = 0; u < pupils.length; u++) pupils[u].style.transform = 'scaleY(' + (0.12 + 0.88 * q).toFixed(3) + ')';
-      var m = q > 0.98 ? 0 : q > 0.4 ? 1 : q > 0.02 ? 2 : 3;
-      if (m !== moodIdx) { moodIdx = m; mood.textContent = STR[lang].mood[m]; }
-    }
-    var away = heroGhost.getBoundingClientRect().bottom < 80;
-    if (away !== buddy.classList.contains('on')) buddy.classList.toggle('on', away);
-    dot.style.left = (p * 100).toFixed(2) + '%';
-    dot.style.top = ((1 - q) * 100).toFixed(2) + '%';
-    if (boosted) { noteKey = 'boost'; note.textContent = STR[lang].boost(Math.ceil((boostUntil - now) / 1000)); }
-    else if (noteKey === 'boost') { noteKey = 'over'; note.textContent = STR[lang].over; }
-  }
-
-  // ---- the reel in the ghost's phone -----------------------------------
-  var cv = document.getElementById('reel');
-  var ctx = cv.getContext('2d');
-  var off = document.createElement('canvas');
-  var octx = off.getContext('2d');
-  function size() {
-    var r = cv.getBoundingClientRect();
-    var dpr = Math.min(2, window.devicePixelRatio || 1);
-    var w = Math.max(60, Math.round(r.width * dpr)), h = Math.round(w * 320 / 190);
-    if (cv.width !== w) { cv.width = w; cv.height = h; }
-  }
-  function hill(c, base, amp, freq, phase, color) {
-    c.fillStyle = color; c.beginPath(); c.moveTo(0, 480);
-    for (var x = 0; x <= 270; x += 6) c.lineTo(x, base + Math.sin(x * freq + phase) * amp);
-    c.lineTo(270, 480); c.closePath(); c.fill();
-  }
-  function scene(c, t) {
-    c.fillStyle = '#6B5B8C'; c.fillRect(0, 0, 270, 480);
-    c.fillStyle = '#F6F2F7'; c.beginPath(); c.arc(190, 110, 46, 0, 6.2832); c.fill();
-    var cx = (t * 18) % 360 - 80;
-    c.fillStyle = '#D8CCD9'; c.fillRect(cx, 190, 70, 16);
-    hill(c, 300, 30, 0.022, t * 0.6, '#3A3350');
-    hill(c, 356, 24, 0.031, t * 1.2 + 1, '#1E1A2C');
-    hill(c, 420, 14, 0.04, t * 2.4 + 2, '#0E0C16');
-    var by = 380 - Math.abs(Math.sin(t * 3.2)) * 150;
-    c.fillStyle = '#FF2DD0'; c.beginPath(); c.arc(100, by, 30, 0, 6.2832); c.fill();
-  }
-  var lastDraw = -1e9, lastScale = -1, t0 = 0;
-  function draw(now) {
-    var q = state.q;
-    var fps = reduce ? 0 : (q < 0.02 ? 0.4 : 3 + 57 * q);
-    var scale = 0.04 + 0.96 * Math.pow(q, 1.7);
-    var due = fps > 0 && now - lastDraw >= 1000 / fps;
-    if (!due && Math.abs(scale - lastScale) < 0.001) return;
-    if (due) { t0 = now / 1000; lastDraw = now; }
-    lastScale = scale;
-    var W = cv.width, H = cv.height;
-    var lw = Math.max(4, Math.round(W * scale)), lh = Math.max(7, Math.round(H * scale));
-    if (off.width !== lw || off.height !== lh) { off.width = lw; off.height = lh; }
-    octx.setTransform(lw / 270, 0, 0, lh / 480, 0, 0);
-    scene(octx, t0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(off, 0, 0, W, H);
-  }
-  function frame(now) { update(now); draw(now); window.requestAnimationFrame(frame); }
-
-  // ---- button feel: press, overshoot, two tones, ripple ------------------
-  var ac = null;
-  function tone(freq, gain) {
-    if (reduce) return;
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      var o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
-      o.type = 'sine'; o.frequency.value = freq;
-      g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
-      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1);
-    } catch (e) {}
-  }
+  // ---- button feel: press, overshoot, ripple -------------------------------
   var btns = document.querySelectorAll('.btn');
   for (var bi = 0; bi < btns.length; bi++) {
     btns[bi].addEventListener('pointerdown', function (e) {
-      if (this.disabled) return;
-      tone(196, 0.03);
-      if (reduce) return;
+      if (this.disabled || reduce) return;
       var r = this.getBoundingClientRect(), sp = document.createElement('span');
       sp.className = 'rip'; sp.style.left = (e.clientX - r.left) + 'px'; sp.style.top = (e.clientY - r.top) + 'px';
       this.appendChild(sp);
       setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 520);
     });
     btns[bi].addEventListener('pointerup', function () {
-      if (this.disabled) return;
-      tone(587, 0.035);
-      if (reduce) return;
+      if (this.disabled || reduce) return;
       this.classList.remove('up'); void this.offsetWidth; this.classList.add('up');
     });
   }
 
-  // ---- negotiator ---------------------------------------------------------
-  var left = document.getElementById('left');
+  // ---- negotiator -------------------------------------------------------------
+  var left = document.getElementById('left'), boosts = 3;
   var opts = document.querySelectorAll('.opt');
-  function lockOpts() { for (var k = 0; k < opts.length; k++) opts[k].disabled = true; }
   for (var k = 0; k < opts.length; k++) {
     opts[k].addEventListener('click', function () {
       if (this.getAttribute('data-kind') === 'vague') { ansKey = 'vague'; ans.textContent = STR[lang].vague; return; }
       if (boosts <= 0) return;
       boosts -= 1;
       left.textContent = String(boosts);
-      boostUntil = performance.now() + 20000;
-      lastScale = -1; lastLabel = '';
+      if (!reduce) { left.classList.remove('pop'); void left.offsetWidth; left.classList.add('pop'); }
       ansKey = boosts > 0 ? 'clear' : 'last';
       ans.textContent = STR[lang][ansKey];
-      // the things this press changed move on their own
-      pop(left); pop(big);
-      if (boosts <= 0) lockOpts();
+      // the ghost up top wakes up too
+      boostUntil = performance.now() + 8000; start = null;
+      if (boosts <= 0) for (var j = 0; j < opts.length; j++) opts[j].disabled = true;
     });
   }
 
   applyLang();
-  size();
-  window.addEventListener('resize', function () { size(); lastScale = -1; });
-  window.requestAnimationFrame(frame);
+  fit(reel); paintMinis(); setStage(0);
+  window.addEventListener('resize', function () { fit(reel); paintMinis(); shownQ = -1; });
+  if (reduce) { setStage(1); paint(reel, Q[1], 1.3); }
+  else window.requestAnimationFrame(frame);
 })();
 </script>
 </body>
