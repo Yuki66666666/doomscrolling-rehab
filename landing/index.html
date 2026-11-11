@@ -71,8 +71,8 @@ button { font: inherit; color: inherit; }
 h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 600; line-height: 1.08; letter-spacing: -0.03em; text-wrap: balance; }
 html[lang="zh-Hant"] h1 { line-height: 1.25; letter-spacing: 0; }
 .hello p { font-size: 18px; line-height: 1.5; max-width: 26em; margin: 12px auto 0; opacity: 0.92; }
-.reel:first-child .actor { top: 52%; width: min(34vh, 56vw); }
-.swipe { position: absolute; left: 0; right: 0; bottom: 208px; text-align: center; color: #FFFFFF; font-weight: 500; font-size: 20px; }
+.mascot { position: absolute; left: 50%; top: 47%; width: min(40vh, 74vw); transform: translate(-50%, -50%); }
+.swipe { position: absolute; left: 0; right: 0; bottom: 128px; text-align: center; color: #FFFFFF; font-weight: 500; font-size: 20px; }
 .swipe svg { display: block; width: 44px; height: 44px; margin: 0 auto 4px; animation: nudge 1.2s var(--ease) infinite; }
 @keyframes nudge { 0% { transform: translateY(10px); opacity: 0.2; } 60% { transform: translateY(-8px); opacity: 1; } 100% { transform: translateY(-8px); opacity: 0; } }
 
@@ -91,7 +91,7 @@ html[lang="zh-Hant"] h1 { line-height: 1.25; letter-spacing: 0; }
 .hud.off * { pointer-events: none !important; }
 .panel { pointer-events: auto; max-width: 640px; margin: 0 auto; background: var(--plum); color: var(--plum-ink); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
 .say { display: flex; gap: 10px; align-items: flex-end; }
-.say svg { width: 56px; height: auto; flex: none; }
+.say img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
 .say .body { fill: #FFFFFF; }
 .say .dark { fill: var(--plum); }
 .say .lid { stroke: var(--plum); stroke-width: 22; stroke-linecap: round; fill: none; }
@@ -101,7 +101,10 @@ html[lang="zh-Hant"] h1 { line-height: 1.25; letter-spacing: 0; }
 .meters b { font-weight: 500; color: var(--plum-ink); font-variant-numeric: tabular-nums; display: inline-block; }
 .pop { animation: pop 420ms var(--ease); }
 @keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
-.acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.acts { display: grid; gap: 8px; }
+.acts:has(.hide + .hide) { display: none; }
+.hide { display: none; }
+.putdown { font-size: 17px; padding: 12px 10px; }
 .btn { position: relative; overflow: hidden; cursor: pointer; border: 0; transition: transform 140ms var(--ease); }
 .btn:active { transform: scale(0.96); }
 .btn.up { animation: up 380ms var(--ease); }
@@ -227,11 +230,7 @@ footer { padding: 32px 0 48px; }
 <div class="hud" id="hud">
   <div class="panel">
     <div class="say">
-      <svg viewBox="120 220 800 430" aria-hidden="true">
-        <path class="body" d="M170 650V560C170 380 310 250 512 250C714 250 854 380 854 560V650Z"/>
-        <path class="lid" d="M318 500H470M554 500H706"/>
-        <g class="pupils" id="pupils"><path class="dark" d="M338 512a56 56 0 0 0 112 0ZM574 512a56 56 0 0 0 112 0Z"/></g>
-      </svg>
+      <img src="icon-192.png" alt="">
       <p class="bubble" id="bubble" aria-live="polite"></p>
     </div>
     <div class="meters">
@@ -240,7 +239,7 @@ footer { padding: 32px 0 48px; }
       <span><span data-zh="畫質 ">picture: </span><b id="mQ">HD</b></span>
     </div>
     <div class="ask" id="ask">
-      <p data-zh="AI 問你：接下來幾分鐘，你想做什麼？">The AI asks: what do you want from the next few minutes?</p>
+      <p data-zh="App 裡的 AI 會問你：你要拿來做什麼？">The AI in the app asks: what do you need it for?</p>
       <div class="opts">
         <button class="opt btn" type="button" data-kind="vague" data-zh="我就是想繼續滑。">I just want to keep scrolling.</button>
         <button class="opt btn" type="button" data-kind="clear" data-zh="找到我姊傳的水餃食譜，存起來就停。">Find the dumpling recipe my sister sent, and stop once it is saved.</button>
@@ -248,8 +247,8 @@ footer { padding: 32px 0 48px; }
       <p class="left"><span data-zh="今天還能要回：">Left today: </span><span id="left">3</span></p>
     </div>
     <div class="acts">
-      <button class="ghostbtn btn" id="askBtn" type="button" data-zh="我有正事，還我速度">I have a real reason, speed it up</button>
-      <button class="putdown btn" id="down" type="button" data-zh="算了，放下手機">Fine, I will put it down</button>
+      <button class="putdown btn hide" id="down" type="button" data-zh="不想滑了">I am done scrolling</button>
+      <button class="ghostbtn btn hide" id="askBtn" type="button" data-zh="太慢了，可以還我速度嗎？">Too slow. Can I have my speed back?</button>
     </div>
   </div>
 </div>
@@ -292,7 +291,7 @@ footer { padding: 32px 0 48px; }
       h1: 'How far can you scroll?', sub: 'This page works like our app. Scroll it like you scroll short videos and see what happens.', swipe: 'Scroll down',
       yt: { kitty: 'Surprised Kitty', keys: 'Keyboard Cat', rick: 'You scrolled right into it', panda: 'Sneezing Baby Panda', dog: 'Dog of Wisdom', tease: 'Ultimate Dog Tease', grumpy: 'The original Grumpy Cat' }, ytBy: 'on YouTube, by ', ytOff: 'Needs an internet connection to play.',
       q: ['HD', 'HD', 'HD', 'soft', 'blurry', 'blurry', 'mush', 'soup'],
-      say: ['Go on. Scroll down, like you always do.', 'Ha. One more.', 'Okay, last one. Probably.', 'Hm. Did that take a bit longer?', 'It is getting kind of blurry.', 'Why is it so slow. I am still watching though.', 'Honestly the spinner is the best part now.', 'I could just… go to sleep.'],
+      say: ['Go on. Scroll down, like you always do.', 'Ha. One more.', 'Okay, last one. Probably.', 'Hm. Did that take a bit longer?', 'It is getting kind of blurry.', 'So slow. You could just stop, you know.', 'Honestly the spinner is the best part now.', 'I am going to sleep. You coming?'],
       vague: 'The AI says: that is honest, but it is not a reason and it has no end. Still slow.',
       clear: 'The AI says: specific, and it ends. Full speed is back. Go find that recipe.',
       last: 'Full speed is back. That was the third time today, so that is it until tomorrow.',
@@ -304,7 +303,7 @@ footer { padding: 32px 0 48px; }
       h1: '你能滑多遠？', sub: '這一頁跟我們的 App 一樣。像平常滑短影音那樣往下滑，看看會發生什麼事。', swipe: '往下滑',
       yt: { kitty: '嚇一跳的小貓', keys: '鍵盤貓', rick: '你被瑞克搖了', panda: '打噴嚏的熊貓寶寶', dog: '智慧之狗', tease: '被吊胃口的狗', grumpy: '不爽貓本尊' }, ytBy: 'YouTube，上傳者 ', ytOff: '需要連上網路才能播。',
       q: ['HD', 'HD', 'HD', '有點糊', '糊', '糊', '很糊', '一團'],
-      say: ['來，像平常那樣往下滑。', '哈，再一支。', '好，最後一支。應該吧。', '嗯？剛剛是不是等比較久？', '畫面開始有點糊了。', '怎麼這麼慢。但我還在看。', '老實說，現在轉圈比影片好看。', '我乾脆去睡覺好了。'],
+      say: ['來，像平常那樣往下滑。', '哈，再一支。', '好，最後一支。應該吧。', '嗯？剛剛是不是等比較久？', '畫面開始有點糊了。', '好慢喔。其實你可以不滑了。', '老實說，現在轉圈比影片好看。', '我要去睡了，你呢？'],
       vague: 'AI 說：很誠實，但這不算理由，也沒有終點。還是慢的。',
       clear: 'AI 說：夠具體，也有終點。還你全速，去找食譜吧。',
       last: '還你全速。這是今天第三次，明天之前沒有了。',
@@ -329,7 +328,8 @@ footer { padding: 32px 0 48px; }
     var k = ORDER[r], el = document.createElement('section');
     el.className = 'reel';
     el.style.background = YT[k] ? '#2E1A47' : BG[k];
-    el.innerHTML = '<div class="clip">' + ghost(YT[k] ? YT[k].k : k) + '</div>' +
+    if (r === 0) el.style.background = '#000000';
+    el.innerHTML = '<div class="clip">' + (r === 0 ? '<img class="mascot" src="ghost-512.png" alt="">' : ghost(YT[k] ? YT[k].k : k)) + '</div>' +
       (r === 0 ? '<div class="hello"><h1></h1><p></p></div><div class="swipe"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 26L22 14L34 26"/></svg><span></span></div>' : '<div class="cap"><b></b><span></span></div>') +
       '<div class="load' + (r === 0 ? ' off' : '') + '"><svg viewBox="-130 -130 260 260" aria-hidden="true">' + SPIN + '</svg><p></p></div>';
     el.querySelector('.clip').setAttribute('inert', '');   // videos are for watching: they never take focus or clicks
@@ -343,7 +343,7 @@ footer { padding: 32px 0 48px; }
   var nodes = document.querySelectorAll('[data-zh]');
   for (var a = 0; a < nodes.length; a++) nodes[a].setAttribute('data-en', nodes[a].textContent);
   var cur = 0, seen = 0, base = 0, boosts = 3, note = '', lastWait = 0, inAbout = false;
-  var bubble = $('bubble'), pupils = $('pupils'), ask = $('ask'), hud = $('hud'), topbar = $('topbar');
+  var bubble = $('bubble'), ask = $('ask'), hud = $('hud'), topbar = $('topbar');
 
   function lvl(i) { return Math.max(0, Math.min(7, i - base)); }       // how far gone reel i is
   function wait(v) { return v < 3 ? 200 : Math.min(3000, 200 + (v - 2) * 520); }
@@ -367,7 +367,8 @@ footer { padding: 32px 0 48px; }
       reels[r].querySelector('.load p').textContent = S.loading + '  ' + (wait(lvl(r)) / 1000).toFixed(1) + ' s';
     }
     $('mN').textContent = cur + 1; $('mW').textContent = (lastWait / 1000).toFixed(1) + ' s'; $('mQ').textContent = S.q[v];
-    pupils.style.transform = 'scaleY(' + Math.max(0.1, 1 - v * 0.125).toFixed(2) + ')';
+    $('down').classList.toggle('hide', cur < 2);            // after a couple of videos you can always just stop
+    $('askBtn').classList.toggle('hide', v < 4);            // asking for speed only makes sense once it is slow
     bubble.textContent = note ? S[note] : S.say[v];
     $('left').textContent = boosts;
     $('verdict').textContent = S.verdict(seen + 1);
