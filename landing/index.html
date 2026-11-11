@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Doomscroll Rehab: how far can you scroll?</title>
 <link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://www.youtube-nocookie.com">
+<link rel="preconnect" href="https://i.ytimg.com">
 <meta name="description" content="Short videos get slower and blurrier the longer you watch, so putting the phone down gets easy. Scroll this page to feel it.">
 <style>
 /* 60 soft lavender white, 30 deep plum + pale lavender, 10 magenta from the app icon (main buttons and the spinner). */
@@ -259,7 +261,18 @@ footer { padding: 32px 0 48px; }
   function $(id) { return document.getElementById(id); }
 
   // what plays in each reel: six ghost clips, plus one very famous music video in the middle
-  var ORDER = [0, 1, 2, 'rick', 3, 4, 5, 1];
+  // Famous clips play from YouTube through its official embed, from the original uploaders. Nothing is copied here.
+  var YT = {
+    kitty: { id: '0Bmhjf0rKe8', by: 'rozzzafly', k: 1 },
+    keys: { id: 'J---aiyznGQ', by: 'Keyboard Cat!', k: 2 },
+    rick: { id: 'dQw4w9WgXcQ', by: 'Rick Astley', k: 3 },
+    panda: { id: '93hq0YU3Gqk', by: 'Wild Candy', k: 4 },
+    dog: { id: 'D-UmfqFjpl0', by: 'Joe', k: 5 },
+    tease: { id: 'nGeKSiCQkPw', by: 'Talking Animals', k: 0 },
+    grumpy: { id: 'INscMGmhmX4', by: 'Real Grumpy Cat', k: 1 }
+  };
+  // the first screen is our own ghost saying hello; every video after it is a real, well-known clip
+  var ORDER = [0, 'kitty', 'keys', 'rick', 'panda', 'dog', 'tease', 'grumpy'];
   var BG = ['#8B5CF6', '#6D43D8', '#4C2A9E', '#7C3AED', '#5B34C4', '#9A6BFF'];
   var PROPS = [
     '<circle cx="330" cy="300" r="46" fill="#2E1A47"/><rect x="300" y="218" width="16" height="60" rx="8" fill="#2E1A47" transform="rotate(30 308 248)"/><circle cx="330" cy="300" r="22" fill="#FFD23F"/>',
@@ -277,7 +290,7 @@ footer { padding: 32px 0 48px; }
     en: {
       title: 'Doomscroll Rehab: how far can you scroll?', other: '中文', loading: 'Loading',
       h1: 'How far can you scroll?', sub: 'This page works like our app. Scroll it like you scroll short videos and see what happens.', swipe: 'Scroll down',
-      rick: ['You scrolled right into it', 'A classic. Playing from YouTube.'], rickOff: ['The most famous music video of 1987', 'Needs an internet connection to play.'],
+      yt: { kitty: 'Surprised Kitty', keys: 'Keyboard Cat', rick: 'You scrolled right into it', panda: 'Sneezing Baby Panda', dog: 'Dog of Wisdom', tease: 'Ultimate Dog Tease', grumpy: 'The original Grumpy Cat' }, ytBy: 'on YouTube, by ', ytOff: 'Needs an internet connection to play.',
       q: ['HD', 'HD', 'HD', 'soft', 'blurry', 'blurry', 'mush', 'soup'],
       say: ['Go on. Scroll down, like you always do.', 'Ha. One more.', 'Okay, last one. Probably.', 'Hm. Did that take a bit longer?', 'It is getting kind of blurry.', 'Why is it so slow. I am still watching though.', 'Honestly the spinner is the best part now.', 'I could just… go to sleep.'],
       vague: 'The AI says: that is honest, but it is not a reason and it has no end. Still slow.',
@@ -289,7 +302,7 @@ footer { padding: 32px 0 48px; }
     zh: {
       title: 'Doomscroll Rehab：你能滑多遠？', other: 'EN', loading: '載入中',
       h1: '你能滑多遠？', sub: '這一頁跟我們的 App 一樣。像平常滑短影音那樣往下滑，看看會發生什麼事。', swipe: '往下滑',
-      rick: ['你被瑞克搖了', '經典。從 YouTube 播放。'], rickOff: ['1987 年最有名的那支 MV', '需要連上網路才能播。'],
+      yt: { kitty: '嚇一跳的小貓', keys: '鍵盤貓', rick: '你被瑞克搖了', panda: '打噴嚏的熊貓寶寶', dog: '智慧之狗', tease: '被吊胃口的狗', grumpy: '不爽貓本尊' }, ytBy: 'YouTube，上傳者 ', ytOff: '需要連上網路才能播。',
       q: ['HD', 'HD', 'HD', '有點糊', '糊', '糊', '很糊', '一團'],
       say: ['來，像平常那樣往下滑。', '哈，再一支。', '好，最後一支。應該吧。', '嗯？剛剛是不是等比較久？', '畫面開始有點糊了。', '怎麼這麼慢。但我還在看。', '老實說，現在轉圈比影片好看。', '我乾脆去睡覺好了。'],
       vague: 'AI 說：很誠實，但這不算理由，也沒有終點。還是慢的。',
@@ -315,10 +328,11 @@ footer { padding: 32px 0 48px; }
   for (var r = 0; r < ORDER.length; r++) {
     var k = ORDER[r], el = document.createElement('section');
     el.className = 'reel';
-    el.style.background = k === 'rick' ? '#2E1A47' : BG[k];
-    el.innerHTML = '<div class="clip">' + (k === 'rick' ? ghost(2) : ghost(k)) + '</div>' +
+    el.style.background = YT[k] ? '#2E1A47' : BG[k];
+    el.innerHTML = '<div class="clip">' + ghost(YT[k] ? YT[k].k : k) + '</div>' +
       (r === 0 ? '<div class="hello"><h1></h1><p></p></div><div class="swipe"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 26L22 14L34 26"/></svg><span></span></div>' : '<div class="cap"><b></b><span></span></div>') +
       '<div class="load' + (r === 0 ? ' off' : '') + '"><svg viewBox="-130 -130 260 260" aria-hidden="true">' + SPIN + '</svg><p></p></div>';
+    el.querySelector('.clip').setAttribute('inert', '');   // videos are for watching: they never take focus or clicks
     feed.insertBefore(el, about);
     reels.push(el);
   }
@@ -348,7 +362,7 @@ footer { padding: 32px 0 48px; }
     reels[0].querySelector('.hello p').textContent = S.sub;
     reels[0].querySelector('.swipe span').textContent = S.swipe;
     for (var r = 0; r < reels.length; r++) {
-      var k = ORDER[r], t = k === 'rick' ? (online ? S.rick : S.rickOff) : CLIPS[lang][k];
+      var k = ORDER[r], t = YT[k] ? [S.yt[k], online ? S.ytBy + YT[k].by : S.ytOff] : CLIPS[lang][k];
       if (r > 0) { reels[r].querySelector('.cap b').textContent = t[0]; reels[r].querySelector('.cap span').textContent = t[1]; }
       reels[r].querySelector('.load p').textContent = S.loading + '  ' + (wait(lvl(r)) / 1000).toFixed(1) + ' s';
     }
@@ -360,13 +374,21 @@ footer { padding: 32px 0 48px; }
   }
   function pop(el) { if (reduce) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
 
-  function rickroll(el) {
-    if (!online || el.querySelector('iframe')) return;
-    var f = document.createElement('iframe');
-    f.src = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=dQw4w9WgXcQ&modestbranding=1&rel=0';
-    f.allow = 'autoplay; encrypted-media'; f.title = 'Rick Astley, Never Gonna Give You Up (official video, YouTube)'; f.tabIndex = -1;
-    var c = el.querySelector('.clip'); c.innerHTML = ''; c.appendChild(f);
+  // only the reel on screen holds a player; the others go back to the ghost
+  function player(i, on) {
+    var y = YT[ORDER[i]], c = reels[i].querySelector('.clip'), has = c.querySelector('iframe');
+    if (!y || !online) return;
+    if (on && !has) {
+      var f = document.createElement('iframe');
+      f.src = 'https://www.youtube-nocookie.com/embed/' + y.id + '?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=' + y.id + '&rel=0';
+      f.allow = 'autoplay; encrypted-media'; f.title = STR.en.yt[ORDER[i]] + ' (YouTube)'; f.tabIndex = -1;
+      c.innerHTML = ''; c.appendChild(f);
+    } else if (!on && has) { c.innerHTML = ghost(y.k); styleReel(i); }
   }
+
+  // keep the reel on screen and the next one loaded, so the only waiting is the waiting we add on purpose
+  // keep three players at most: the one before, the one on screen, and the next one already loading
+  function warm(i) { for (var j = 0; j < reels.length; j++) player(j, j >= i - 1 && j <= i + 1); }
 
   var leaving = false;
   function arrive(i) {
@@ -374,7 +396,7 @@ footer { padding: 32px 0 48px; }
     cur = i; note = ''; ask.classList.remove('on');
     var load = reels[i].querySelector('.load');
     styleReel(i);
-    if (ORDER[i] === 'rick') rickroll(reels[i]);
+    warm(i);
     if (i > seen) {                       // a video you have not seen yet has to load, and loading keeps getting slower
       seen = i; lastWait = wait(lvl(i));
       setTimeout(function () { load.classList.add('off'); }, lastWait);
@@ -382,13 +404,13 @@ footer { padding: 32px 0 48px; }
     } else { load.classList.add('off'); render(); }
   }
 
-  var io = new IntersectionObserver(function (es) {
-    for (var e = 0; e < es.length; e++) {
-      var t = es[e].target;
-      if (es[e].isIntersecting) arrive(reels.indexOf(t));
-    }
-  }, { root: feed, threshold: [0.6] });
-  for (var q = 0; q < reels.length; q++) io.observe(reels[q]);
+  // which reel is on screen is read straight from the scroll position
+  function checkReel() {
+    var i = Math.round(feed.scrollTop / reels[0].offsetHeight);
+    if (i >= 0 && i < reels.length) arrive(i);
+  }
+  feed.addEventListener('scroll', checkReel, { passive: true });
+
   function checkAbout() {
     var now = about.getBoundingClientRect().top < window.innerHeight * 0.5;
     if (now === inAbout) return;
@@ -444,6 +466,7 @@ footer { padding: 32px 0 48px; }
   }
 
   render();
+  warm(0);
 })();
 </script>
 </body>
