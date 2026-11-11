@@ -419,6 +419,18 @@ class RehabApp extends StatelessWidget {
         ),
         splashFactory: NoSplash.splashFactory,
       ),
+      // The phone's own bars take the app's background, with icons that stay readable on it.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle(
+          statusBarColor: t.bg,
+          statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+          systemNavigationBarColor: t.bg,
+          systemNavigationBarDividerColor: t.bg,
+          systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+        ),
+        child: child!,
+      ),
       home: const HomePage(),
     );
   }
