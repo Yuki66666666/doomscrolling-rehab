@@ -81,6 +81,20 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                // The profile the onboarding conversation produced, kept across launches.
+                "prefGet" -> result.success(
+                    getSharedPreferences("rehab", MODE_PRIVATE).getString(call.argument<String>("key") ?: "", null),
+                )
+
+                "prefSet" -> {
+                    val editor = getSharedPreferences("rehab", MODE_PRIVATE).edit()
+                    val value = call.argument<String>("value")
+                    val key = call.argument<String>("key") ?: ""
+                    if (value == null) editor.remove(key) else editor.putString(key, value)
+                    editor.apply()
+                    result.success(true)
+                }
+
                 else -> result.notImplemented()
             }
         }

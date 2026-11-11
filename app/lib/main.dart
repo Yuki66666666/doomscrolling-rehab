@@ -14,6 +14,7 @@ const _llmModel = String.fromEnvironment('LLM_MODEL');
 bool get _aiConfigured => _llmBase.isNotEmpty && _llmKey.isNotEmpty && _llmModel.isNotEmpty;
 
 const _ease = Cubic(0.22, 1, 0.36, 1);
+const _chromePkg = 'com.android.chrome';
 
 void main() => runApp(const RehabApp());
 
@@ -84,7 +85,6 @@ class RehabApp extends StatelessWidget {
           seedColor: t.accent,
           brightness: dark ? Brightness.dark : Brightness.light,
         ).copyWith(primary: t.accent, onPrimary: t.onAccent, surface: t.surface),
-        textTheme: const TextTheme().apply(bodyColor: t.text, displayColor: t.text),
         splashFactory: NoSplash.splashFactory,
       ),
       home: const HomePage(),
@@ -109,30 +109,52 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic> s = {};
   List<Map<String, dynamic>> apps = [];
   final Set<String> chosen = {};
+  Timer? timer;
+  bool zh = false;
+  bool loaded = false;
+  bool starting = false;
+  bool showDetails = false;
+
+  // Setup conversation
+  bool onboarded = false;
+  bool obBusy = false;
+  bool obDone = false;
+  final List<ChatLine> obChat = [];
+  final List<Map<String, String>> obHistory = [];
+  final obInput = TextEditingController();
+  final obScroll = ScrollController();
+  String planNote = '';
+  String instead = '';
+  Map<String, double> planNums = {};
+
+  // Negotiator
   final List<ChatLine> chat = [];
   final List<Map<String, String>> history = [];
   final input = TextEditingController();
   final scroll = ScrollController();
-  Timer? timer;
   bool sending = false;
-  bool starting = false;
-  bool zh = false;
-  final coachInput = TextEditingController();
-  bool coachBusy = false;
-  String coachNote = '';
+  int wordsFrom = 0; // history index where the current negotiation started
+
+  // Report
   bool reportBusy = false;
   String reportText = '';
-  int wordsFrom = 0; // history index where the current negotiation started
 
   /// Picks the English or Traditional Chinese string.
   String tr(String en, String zhText) => zh ? zhText : en;
+
+  String get _firstQuestion => tr(
+        'Hi. I will set this up for you, it takes about a minute. Which app do you lose the most time in?',
+        '嗨，我來幫你設定，大概一分鐘。你最常滑到停不下來的是哪個 App？',
+      );
+
+  String get _languageRule =>
+      zh ? 'Write in Traditional Chinese as used in Taiwan.' : 'Write in English.';
 
   @override
   void initState() {
     super.initState();
     zh = WidgetsBinding.instance.platformDispatcher.locale.languageCode == 'zh';
-    _loadApps();
-    _poll();
+    _init();
     timer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
   }
 
@@ -140,19 +162,52 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     timer?.cancel();
     input.dispose();
-    coachInput.dispose();
+    obInput.dispose();
     scroll.dispose();
+    obScroll.dispose();
     super.dispose();
   }
 
-  Future<void> _loadApps() async {
-    final raw = await _channel.invokeMethod<List<dynamic>>('apps') ?? [];
-    final list = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    setState(() {
-      apps = list.where((a) => a['installed'] == true).toList();
-      for (final a in apps) {
-        if (a['pkg'] != 'com.android.chrome') chosen.add(a['pkg'] as String);
+  Future<void> _init() async {
+    try {
+      final raw = await _channel.invokeMethod<List<dynamic>>('apps') ?? [];
+      apps = raw.map((e) => Map<String, dynamic>.from(e as Map)).where((a) => a['installed'] == true).toList();
+    } catch (_) {
+      apps = [];
+    }
+    try {
+      final saved = await _channel.invokeMethod<String>('prefGet', {'key': 'profile'});
+      if (saved != null) {
+        final p = jsonDecode(saved) as Map<String, dynamic>;
+        zh = p['zh'] == true;
+        planNote = (p['planNote'] ?? '').toString();
+        instead = (p['instead'] ?? '').toString();
+        planNums = ((p['plan'] ?? {}) as Map).map((k, v) => MapEntry(k.toString(), (v as num).toDouble()));
+        final installed = apps.map((a) => a['pkg']).toSet();
+        chosen
+          ..clear()
+          ..addAll(((p['apps'] ?? []) as List).map((e) => e.toString()).where(installed.contains));
+        if (planNums.isNotEmpty) await _channel.invokeMethod('plan', planNums);
+        onboarded = true;
       }
+    } catch (_) {
+      // no saved profile, or it could not be read: start the setup conversation
+    }
+    if (!onboarded) obChat.add(ChatLine('bot', _firstQuestion));
+    await _poll();
+    if (mounted) setState(() => loaded = true);
+  }
+
+  Future<void> _saveProfile() async {
+    await _channel.invokeMethod('prefSet', {
+      'key': 'profile',
+      'value': jsonEncode({
+        'zh': zh,
+        'apps': chosen.toList(),
+        'plan': planNums,
+        'planNote': planNote,
+        'instead': instead,
+      }),
     });
   }
 
@@ -184,34 +239,16 @@ class _HomePageState extends State<HomePage> {
     await _poll();
   }
 
-  // ---------- negotiator ----------
-
-  String _systemPrompt() {
-    final kbps = s['kbps'];
-    return [
-      'You are the negotiator inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
-      'The user has been slowed down and is asking you for full speed back.',
-      '',
-      'Right now:',
-      '- Scrolling this session: ${((s['sessionMin'] ?? 0) as num).round()} minutes',
-      '- Current feed speed: ${kbps == null ? 'full speed' : '${(kbps as num).round()} kbps'}',
-      '- Speed boosts already granted today: ${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3}',
-      '- Day ${((s['day'] ?? 0) as num) + 1} of a 14-day taper',
-      '',
-      'How to talk (motivational interviewing):',
-      '- Never lecture, never shame, never quote statistics.',
-      '- Ask one short open question at a time so the user says in their own words what they want from the next few minutes.',
-      '- Reflect their answer back in a few words.',
-      '- If they give a specific reason and a specific stopping point, grant a boost. Grant less than they ask for when they are vague.',
-      '- If they just say "because I want to", ask what they were hoping to feel, once. If they are still vague, grant nothing and offer one small alternative they could do in two minutes.',
-      '- If all boosts for today are used, say so plainly and grant nothing.',
-      zh
-          ? '- Keep every reply under 60 Chinese characters. Reply in Traditional Chinese as used in Taiwan, unless the user writes in another language.'
-          : '- Keep every reply under 45 words. Reply in the language the user writes in.',
-      '',
-      'Answer with JSON only, no other text: {"reply": "<what you say>", "grant_minutes": <integer 0 to 10>}',
-    ].join('\n');
+  void _switchLanguage() {
+    setState(() {
+      zh = !zh;
+      // The opening question is ours, not the model's, so it can follow the switch.
+      if (!onboarded && obHistory.isEmpty && obChat.isNotEmpty) obChat[0] = ChatLine('bot', _firstQuestion);
+    });
+    if (onboarded) _saveProfile();
   }
+
+  // ---------- model ----------
 
   /// One chat completion against the configured OpenAI-compatible endpoint.
   Future<String> _chat(String system, List<Map<String, String>> messages, {int seconds = 30}) async {
@@ -253,116 +290,172 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Future<(String, int)> _askModel() async {
-    final text = await _chat(_systemPrompt(), history);
-    final j = _jsonIn(text);
-    if (j != null) return ((j['reply'] ?? '').toString(), ((j['grant_minutes'] ?? 0) as num).round());
-    return (text, 0);
-  }
+  // ---------- setup conversation: the model gets to know you, then configures everything ----------
 
-  String get _replyLanguageRule => zh
-      ? 'Write in Traditional Chinese as used in Taiwan.'
-      : 'Write in English.';
-
-  // ---------- coach: turns what the user says into their plan ----------
-
-  Future<void> _coach() async {
-    final about = coachInput.text.trim();
-    if (about.isEmpty || coachBusy) return;
-    if (!_aiConfigured) {
-      setState(() => coachNote = tr('No model configured in this build.', '這個版本沒有接上模型。'));
-      return;
-    }
-    setState(() {
-      coachBusy = true;
-      coachNote = tr('The coach is reading what you wrote. This takes about 20 seconds.', '教練正在看你寫的內容，大約需要 20 秒。');
-    });
-    final system = [
-      'You are the coach inside Doomscroll Rehab. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days.',
-      'You set four numbers for this person:',
-      '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. Set it a little under how long their sessions run now, so day 1 barely feels different.',
-      '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who have quit and relapsed before.',
-      '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who say they lose track of time.',
-      '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would remove the app if it stalled.',
-      'Then write note: at most 50 words, to the person, saying why these numbers fit what they told you. No lecturing, no statistics, no field names. $_replyLanguageRule',
-      'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
+  String _setupPrompt() {
+    final names = apps.where((a) => a['pkg'] != _chromePkg).map((a) => a['label']).toSet().join(', ');
+    final turns = obHistory.where((m) => m['role'] == 'user').length;
+    return [
+      'You are setting up Doomscroll Rehab for a new user by talking with them. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days. To get full speed back the user has to ask you and say why.',
+      'You already opened with: "$_firstQuestion"',
+      'Ask ONE short question per turn. Be warm and plain. Never lecture, never quote statistics.',
+      'You need to learn: (1) which app pulls them in, (2) when it happens and how long a session usually runs, (3) what they tried before and why it did not last, (4) what they would rather be doing with that time. Skip anything they already told you.',
+      turns >= 4
+          ? 'This is the last turn. You must finish now with done=true.'
+          : 'Ask at most three more questions, then finish. Finish earlier if you already know enough.',
+      'Feed apps installed on this phone: $names',
+      'When you finish, set:',
+      '- apps: which of the installed apps to slow, using the exact names above. Include the ones they named; include the rest only if they said they scroll everywhere.',
+      '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. A little under how long their sessions run now, so day 1 barely feels different.',
+      '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who quit and relapsed before.',
+      '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who lose track of time.',
+      '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would delete the app if it stalled.',
+      '- instead: what they said they would rather do, in their own words, under 12 words.',
+      '- reply: two or three sentences in everyday words saying what will happen the next time they scroll and why it fits what they told you. No field names.',
+      _languageRule,
+      'Answer with JSON only. While asking: {"reply": "<your question>", "done": false}. When finishing: {"reply": "...", "done": true, "apps": ["..."], "start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "instead": "..."}',
     ].join('\n');
-    try {
-      final text = await _chat(system, [
-        {
-          'role': 'user',
-          'content': 'What the person said about their scrolling:\n$about\n\n'
-              'Sessions measured by the app so far:\n${jsonEncode(s['sessions'] ?? [])}',
-        },
-      ], seconds: 75);
-      final j = _jsonIn(text);
-      if (j == null) throw Exception('no JSON in reply');
-      await _channel.invokeMethod('plan', {
-        'startGraceMin': (j['start_grace_min'] as num?)?.toDouble(),
-        'dailyFactor': (j['daily_factor'] as num?)?.toDouble(),
-        'rampMin': (j['ramp_min'] as num?)?.toDouble(),
-        'floorKbps': (j['floor_kbps'] as num?)?.toDouble(),
-      });
-      await _poll();
-      if (!mounted) return;
-      setState(() {
-        coachNote = (j['note'] ?? '').toString();
-        coachInput.clear();
-      });
-    } catch (e) {
-      if (mounted) setState(() => coachNote = tr('Could not reach the coach. $e', '教練沒有回應。$e'));
-    } finally {
-      if (mounted) setState(() => coachBusy = false);
-    }
   }
 
-  // ---------- report: what you said versus what you did ----------
+  // Used only when no model is configured or the call fails. The screen says so.
+  Map<String, dynamic> _setupScripted() {
+    final answers = obHistory.where((m) => m['role'] == 'user').map((m) => m['content']!).toList();
+    if (answers.length == 1) {
+      return {'reply': tr('When does it usually happen, and for how long?', '通常是什麼時候滑？一次大概多久？'), 'done': false};
+    }
+    if (answers.length == 2) {
+      return {'reply': tr('What would you rather be doing with that time?', '那段時間你其實比較想做什麼？'), 'done': false};
+    }
+    return {
+      'reply': tr(
+        'Here is a starting plan. The first ten minutes of a session stay at full speed, then the feed gets slower every minute. Each day the full-speed part gets a little shorter.',
+        '先用這個計畫開始：每次打開的前十分鐘全速，之後每分鐘更慢。全速的時間每天會再短一點。',
+      ),
+      'done': true,
+      'apps': <String>[],
+      'start_grace_min': 10,
+      'daily_factor': 0.93,
+      'ramp_min': 15,
+      'floor_kbps': 40,
+      'instead': answers.last,
+    };
+  }
 
-  Future<void> _report() async {
-    if (reportBusy) return;
-    final promises = (s['promises'] ?? []) as List;
-    if (promises.isEmpty) {
-      setState(() => reportText = tr('Nothing to report yet. Ask for full speed once first.', '還沒有資料。先跟談判要一次全速。'));
-      return;
-    }
-    if (!_aiConfigured) {
-      setState(() => reportText = tr('No model configured in this build.', '這個版本沒有接上模型。'));
-      return;
-    }
+  Future<void> _setupSend() async {
+    final text = obInput.text.trim();
+    if (text.isEmpty || obBusy || obDone) return;
+    obInput.clear();
     setState(() {
-      reportBusy = true;
-      reportText = tr('Reading your log. This takes about 20 seconds.', '正在讀你的紀錄，大約需要 20 秒。');
+      obBusy = true;
+      obChat.add(ChatLine('user', text));
+      obHistory.add({'role': 'user', 'content': text});
     });
-    final system = [
-      'You write the usage report inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
-      'You get JSON with: promises (what the user said to get full speed back, the minutes granted, and the outcome: kept means they stopped when it ran out, broken means they kept scrolling, pending means still being checked), finished sessions, and the current session.',
-      'Write summary: at most 70 words, addressed to the person as "you". Where a promise was broken, quote a few of their own words back exactly, in quotation marks. Say plainly how many promises were kept out of how many decided. End with ONE concrete change they could make, in everyday words, and nothing after it.',
-      'No lecturing, no shaming, no statistics from outside this data, no field names. $_replyLanguageRule',
-      'Answer with JSON only: {"summary": "..."}',
-    ].join('\n');
-    try {
-      final text = await _chat(system, [
-        {
-          'role': 'user',
-          'content': jsonEncode({
-            'promises': promises,
-            'finishedSessions': s['sessions'] ?? [],
-            'currentSessionMinutes': s['sessionMin'],
-            'currentSessionMinutesAfterSlowingBegan': s['slowedMin'],
-          }),
-        },
-      ], seconds: 75);
-      final j = _jsonIn(text);
-      if (!mounted) return;
-      setState(() => reportText = (j?['summary'] ?? text).toString());
-    } catch (e) {
-      if (mounted) setState(() => reportText = tr('Could not reach the model. $e', '模型沒有回應。$e'));
-    } finally {
-      if (mounted) setState(() => reportBusy = false);
+    _scrollDown(obScroll);
+
+    Map<String, dynamic>? j;
+    String? note;
+    if (_aiConfigured) {
+      try {
+        j = _jsonIn(await _chat(_setupPrompt(), obHistory, seconds: 60));
+        if (j == null || (j['reply'] ?? '').toString().isEmpty) throw Exception('empty reply');
+      } catch (e) {
+        j = null;
+        note = tr('Model call failed, scripted question shown. $e', '模型沒有回應，以下是預設問題。$e');
+      }
+    } else {
+      note = obHistory.length == 1 ? tr('No model in this build. Questions are scripted.', '這個版本沒有接上模型，問題是預設的。') : null;
     }
+    j ??= _setupScripted();
+    final reply = j['reply'].toString();
+    final done = j['done'] == true;
+    if (done) await _applySetup(j, reply);
+    if (!mounted) return;
+    setState(() {
+      obHistory.add({'role': 'assistant', 'content': reply});
+      obChat.add(ChatLine('bot', reply));
+      if (note != null) obChat.add(ChatLine('note', note));
+      obDone = done;
+      obBusy = false;
+    });
+    _scrollDown(obScroll);
   }
 
-  (String, int) _scripted() {
+  Future<void> _applySetup(Map<String, dynamic> j, String reply) async {
+    double num_(String key, double fallback) => (j[key] is num) ? (j[key] as num).toDouble() : fallback;
+    final wanted = ((j['apps'] ?? []) as List).map((e) => e.toString().toLowerCase()).toSet();
+    chosen.clear();
+    for (final a in apps) {
+      if (a['pkg'] == _chromePkg) continue;
+      if (wanted.isEmpty || wanted.contains((a['label'] as String).toLowerCase())) chosen.add(a['pkg'] as String);
+    }
+    if (chosen.isEmpty) {
+      chosen.addAll(apps.where((a) => a['pkg'] != _chromePkg).map((a) => a['pkg'] as String));
+    }
+    planNums = {
+      'startGraceMin': num_('start_grace_min', 10),
+      'dailyFactor': num_('daily_factor', 0.93),
+      'rampMin': num_('ramp_min', 15),
+      'floorKbps': num_('floor_kbps', 40),
+    };
+    planNote = reply;
+    instead = (j['instead'] ?? '').toString();
+    await _channel.invokeMethod('plan', planNums);
+    await _saveProfile();
+    await _poll();
+  }
+
+  Future<void> _finishSetup({bool turnOn = true}) async {
+    if (chosen.isEmpty) {
+      chosen.addAll(apps.where((a) => a['pkg'] != _chromePkg).map((a) => a['pkg'] as String));
+    }
+    if (turnOn && !running) await _toggle();
+    await _saveProfile();
+    if (mounted) setState(() => onboarded = true);
+  }
+
+  void _restartSetup() {
+    setState(() {
+      onboarded = false;
+      obDone = false;
+      obBusy = false;
+      obHistory.clear();
+      obChat
+        ..clear()
+        ..add(ChatLine('bot', _firstQuestion));
+    });
+  }
+
+  // ---------- negotiator ----------
+
+  String _negotiatorPrompt() {
+    final kbps = s['kbps'];
+    return [
+      'You are the negotiator inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
+      'The user has been slowed down and is asking you for full speed back.',
+      '',
+      'Right now:',
+      '- Scrolling this session: ${((s['sessionMin'] ?? 0) as num).round()} minutes',
+      '- Current feed speed: ${kbps == null ? 'full speed' : '${(kbps as num).round()} kbps'}',
+      '- Speed boosts already granted today: ${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3}',
+      '- Day ${((s['day'] ?? 0) as num) + 1} of a 14-day taper',
+      if (instead.isNotEmpty) '- When they set the app up, they said they would rather be doing this: $instead',
+      '',
+      'How to talk (motivational interviewing):',
+      '- Never lecture, never shame, never quote statistics.',
+      '- Ask one short open question at a time so the user says in their own words what they want from the next few minutes.',
+      '- Reflect their answer back in a few words.',
+      '- If they give a specific reason and a specific stopping point, grant a boost. Grant less than they ask for when they are vague.',
+      '- If they just say "because I want to", ask what they were hoping to feel, once. If they are still vague, grant nothing and offer one small alternative they could do in two minutes.',
+      '- If all boosts for today are used, say so plainly and grant nothing.',
+      zh
+          ? '- Keep every reply under 60 Chinese characters. Reply in Traditional Chinese as used in Taiwan, unless the user writes in another language.'
+          : '- Keep every reply under 45 words. Reply in the language the user writes in.',
+      '',
+      'Answer with JSON only, no other text: {"reply": "<what you say>", "grant_minutes": <integer 0 to 10>}',
+    ].join('\n');
+  }
+
+  (String, int) _negotiatorScripted() {
     final used = (s['grantsToday'] ?? 0) as num;
     final max = (s['maxGrants'] ?? 3) as num;
     if (used >= max) {
@@ -372,7 +465,7 @@ class _HomePageState extends State<HomePage> {
         0
       );
     }
-    final turns = history.where((m) => m['role'] == 'user').length;
+    final turns = history.skip(wordsFrom).where((m) => m['role'] == 'user').length;
     if (turns <= 1) {
       return (tr('What do you want from the next few minutes on the feed?', '接下來這幾分鐘，你想從動態裡得到什麼？'), 0);
     }
@@ -388,21 +481,24 @@ class _HomePageState extends State<HomePage> {
       chat.add(ChatLine('user', text));
       history.add({'role': 'user', 'content': text});
     });
-    _scrollDown();
+    _scrollDown(scroll);
 
     var reply = '';
     var grant = 0;
     String? note;
     if (_aiConfigured) {
       try {
-        (reply, grant) = await _askModel();
+        final raw = await _chat(_negotiatorPrompt(), history);
+        final j = _jsonIn(raw);
+        reply = (j?['reply'] ?? raw).toString();
+        grant = ((j?['grant_minutes'] ?? 0) as num).round();
         if (reply.isEmpty) throw Exception('empty reply');
       } catch (e) {
-        (reply, grant) = _scripted();
+        (reply, grant) = _negotiatorScripted();
         note = tr('Model call failed, scripted reply shown. $e', '模型沒有回應，以下是預設回覆。$e');
       }
     } else {
-      (reply, grant) = _scripted();
+      (reply, grant) = _negotiatorScripted();
     }
 
     // What the user said in this negotiation is stored with the boost, so it can be held against what they do next.
@@ -419,69 +515,80 @@ class _HomePageState extends State<HomePage> {
       if (granted > 0) chat.add(ChatLine('note', tr('Full speed for $granted minutes', '全速 $granted 分鐘')));
       sending = false;
     });
-    _scrollDown();
+    _scrollDown(scroll);
   }
 
-  void _scrollDown() {
+  // ---------- report: what you said versus what you did ----------
+
+  Future<void> _report() async {
+    if (reportBusy) return;
+    final promises = (s['promises'] ?? []) as List;
+    if (promises.isEmpty) {
+      setState(() => reportText = tr('Nothing to report yet. Ask for full speed once first.', '還沒有資料。先要一次全速。'));
+      return;
+    }
+    if (!_aiConfigured) {
+      setState(() => reportText = tr('No model configured in this build.', '這個版本沒有接上模型。'));
+      return;
+    }
+    setState(() {
+      reportBusy = true;
+      reportText = tr('Reading your log. This takes about 20 seconds.', '正在讀你的紀錄，大約需要 20 秒。');
+    });
+    final system = [
+      'You write the usage report inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
+      'You get JSON with: promises (what the user said to get full speed back, the minutes granted, and the outcome: kept means they stopped when it ran out, broken means they kept scrolling, pending means still being checked), finished sessions, the current session, and what they said they would rather be doing.',
+      'Write summary: at most 70 words, addressed to the person as "you". Where a promise was broken, quote a few of their own words back exactly, in quotation marks. Say plainly how many promises were kept out of how many decided. End with ONE concrete change they could make, in everyday words, and nothing after it.',
+      'No lecturing, no shaming, no statistics from outside this data, no field names. $_languageRule',
+      'Answer with JSON only: {"summary": "..."}',
+    ].join('\n');
+    try {
+      final text = await _chat(system, [
+        {
+          'role': 'user',
+          'content': jsonEncode({
+            'promises': promises,
+            'finishedSessions': s['sessions'] ?? [],
+            'currentSessionMinutes': s['sessionMin'],
+            'currentSessionMinutesAfterSlowingBegan': s['slowedMin'],
+            'wouldRatherBeDoing': instead,
+          }),
+        },
+      ], seconds: 75);
+      final j = _jsonIn(text);
+      if (!mounted) return;
+      setState(() => reportText = (j?['summary'] ?? text).toString());
+    } catch (e) {
+      if (mounted) setState(() => reportText = tr('Could not reach the model. $e', '模型沒有回應。$e'));
+    } finally {
+      if (mounted) setState(() => reportBusy = false);
+    }
+  }
+
+  void _scrollDown(ScrollController c) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scroll.hasClients) {
-        scroll.animateTo(scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: _ease);
+      if (c.hasClients) {
+        c.animateTo(c.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: _ease);
       }
     });
   }
-
-  // ---------- view ----------
 
   String _fmtTime(num minutes) {
     final total = (minutes * 60).floor();
     return '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
   }
 
+  // ---------- view ----------
+
   @override
   Widget build(BuildContext context) {
     final t = Tokens.of(context);
-    final stage = (s['stage'] ?? 'off') as String;
-    final kbps = s['kbps'] as num?;
-    final sessionMin = (s['sessionMin'] ?? 0) as num;
-    final graceMin = (s['graceMin'] ?? 10) as num;
-    final rampMin = (s['rampMin'] ?? 15) as num;
-    final minKbps = (s['minKbps'] ?? 40) as num;
-    final delayMs = (s['connectDelayMs'] ?? 0) as num;
-    final timeScale = (s['timeScale'] ?? 1) as num;
-    final hosts = ((s['hosts'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    final error = s['error'] as String?;
-    final promises = ((s['promises'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    final keptCount = promises.where((p) => p['outcome'] == 'kept').length;
-    final decidedCount = promises.where((p) => p['outcome'] != 'pending').length;
-
-    final stageText = {
-      'off': tr('Off', '未開啟'),
-      'idle': tr('On, waiting for a feed', '已開啟，等你打開動態'),
-      'full': tr('Full speed', '全速'),
-      'slowing': tr('Slowing down', '正在變慢'),
-      'floor': tr('At the floor', '已降到最慢'),
-      'boost': tr('Boost active', '全速時段'),
-    };
-    final stageColor = switch (stage) {
-      'full' || 'boost' => t.ok,
-      'slowing' => t.warn,
-      'floor' => t.bad,
-      _ => t.muted,
-    };
-    final speedText = !running
-        ? tr('Off', '未開啟')
-        : kbps == null
-            ? tr('Full', '全速')
-            : kbps >= 1000
-                ? '${(kbps / 1000).toStringAsFixed(1)} Mbps'
-                : '${kbps.round()} kbps';
-
     final small = TextStyle(fontSize: 14, height: 1.5, color: t.muted, fontWeight: FontWeight.w400);
     final body = TextStyle(fontSize: 16, height: 1.7, color: t.text, fontWeight: FontWeight.w400);
     final h2 = TextStyle(fontSize: 16, height: 1.5, color: t.text, fontWeight: FontWeight.w500);
     final stat = TextStyle(
-      fontSize: 36,
-      height: 1.2,
+      fontSize: 32,
+      height: 1.25,
       color: t.text,
       fontWeight: FontWeight.w500,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -513,55 +620,209 @@ class _HomePageState extends State<HomePage> {
           child: Text(label),
         );
 
+    Widget primary(String label, VoidCallback? onTap) => SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: onTap,
+            style: FilledButton.styleFrom(
+              backgroundColor: t.accent,
+              foregroundColor: t.onAccent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            ),
+            child: Text(label),
+          ),
+        );
+
+    InputDecoration field(String hint) => InputDecoration(
+          hintText: hint,
+          hintStyle: body.copyWith(color: t.muted, height: 1.3),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: t.line, width: 0.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: t.accent, width: 2),
+          ),
+        );
+
+    Widget bubble(ChatLine m) => Align(
+          alignment: m.kind == 'user'
+              ? Alignment.centerRight
+              : m.kind == 'note'
+                  ? Alignment.center
+                  : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: m.kind == 'note' ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            constraints: const BoxConstraints(maxWidth: 300),
+            decoration: m.kind == 'note'
+                ? null
+                : BoxDecoration(
+                    color: m.kind == 'bot' ? t.bubble : null,
+                    border: m.kind == 'user' ? Border.all(color: t.line, width: 0.5) : null,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+            child: Text(m.text, style: m.kind == 'note' ? small : body.copyWith(height: 1.5)),
+          ),
+        );
+
+    final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text('Doomscroll Rehab', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
+        ),
+        plain(zh ? 'EN' : '中文', _switchLanguage),
+      ],
+    );
+
+    if (!loaded) {
+      return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: header)));
+    }
+
+    // ----- first run: a conversation instead of a settings screen -----
+    if (!onboarded) {
+      return Scaffold(
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                header,
+                const SizedBox(height: 4),
+                Text(
+                  tr('A few questions, then it sets itself up.', '回答幾個問題，它會自己設定好。'),
+                  style: small,
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    controller: obScroll,
+                    children: [
+                      for (final m in obChat) bubble(m),
+                      if (obBusy) bubble(ChatLine('note', tr('Thinking', '思考中'))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (obDone) ...[
+                  primary(tr('Turn it on', '開始'), starting ? null : () => _finishSetup()),
+                  const SizedBox(height: 8),
+                  Text(
+                    tr('Android will ask to allow a VPN. It stays on this phone and only sees which servers those apps talk to.',
+                        'Android 會詢問是否允許 VPN。它只在這支手機上運作，只看得到那些 App 連到哪些伺服器。'),
+                    style: small,
+                  ),
+                ] else
+                  Row(children: [
+                    Expanded(
+                      child: TextField(
+                        controller: obInput,
+                        onSubmitted: (_) => _setupSend(),
+                        style: body.copyWith(height: 1.3),
+                        decoration: field(tr('Type your answer', '輸入你的回答')),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    plain(tr('Send', '送出'), obBusy ? null : _setupSend, on: true),
+                  ]),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: plain(tr('Skip, use the default plan', '跳過，用預設計畫'), () => _finishSetup(turnOn: false)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ----- home: one sentence about now, and the way to ask for more -----
+    final stage = (s['stage'] ?? 'off') as String;
+    final kbps = s['kbps'] as num?;
+    final sessionMin = (s['sessionMin'] ?? 0) as num;
+    final graceMin = (s['graceMin'] ?? 10) as num;
+    final rampMin = (s['rampMin'] ?? 15) as num;
+    final minKbps = (s['minKbps'] ?? 40) as num;
+    final delayMs = (s['connectDelayMs'] ?? 0) as num;
+    final timeScale = (s['timeScale'] ?? 1) as num;
+    final day = ((s['day'] ?? 0) as num).toInt();
+    final hosts = ((s['hosts'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final error = s['error'] as String?;
+    final promises = ((s['promises'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final keptCount = promises.where((p) => p['outcome'] == 'kept').length;
+    final decidedCount = promises.where((p) => p['outcome'] != 'pending').length;
+    final speedText = kbps == null
+        ? tr('full speed', '全速')
+        : kbps >= 1000
+            ? '${(kbps / 1000).toStringAsFixed(1)} Mbps'
+            : '${kbps.round()} kbps';
+    final appNames = apps.where((a) => chosen.contains(a['pkg'])).map((a) => a['label']).toSet().join(tr(', ', '、'));
+
+    final stageColor = switch (stage) {
+      'full' || 'boost' => t.ok,
+      'slowing' => t.warn,
+      'floor' => t.bad,
+      _ => t.muted,
+    };
+    final heroTitle = switch (stage) {
+      'off' => tr('Off', '未開啟'),
+      'idle' => tr('Ready when you are', '準備好了'),
+      'full' => tr('Full speed', '全速'),
+      'slowing' => tr('Getting slower', '正在變慢'),
+      'floor' => tr('As slow as it gets', '已經最慢'),
+      'boost' => tr('Full speed, on a timer', '限時全速'),
+      _ => stage,
+    };
+    final left = graceMin - sessionMin;
+    final heroLine = switch (stage) {
+      'off' => tr('Turn it on and $appNames will get slower the longer you scroll.', '開啟後，$appNames 會越滑越慢。'),
+      'idle' => tr(
+          'Open $appNames whenever you like. The first ${graceMin.toStringAsFixed(0)} minutes are at full speed.',
+          '想滑的時候就打開 $appNames。前 ${graceMin.toStringAsFixed(0)} 分鐘是全速。',
+        ),
+      'full' => tr(
+          'Another ${_fmtTime(left)} at full speed. After that it gets slower every minute.',
+          '還有 ${_fmtTime(left)} 的全速，之後每分鐘都會更慢。',
+        ),
+      'slowing' => tr(
+          'You have been scrolling for ${sessionMin.round()} minutes. The feed is at $speedText and still dropping.',
+          '你已經滑了 ${sessionMin.round()} 分鐘。現在是 $speedText，還會繼續變慢。',
+        ),
+      'floor' => instead.isNotEmpty
+          ? tr('This is the slowest it goes. You said you would rather: $instead', '這是最慢的速度了。你說過你比較想：$instead')
+          : tr('This is the slowest it goes. Ten minutes away resets it.', '這是最慢的速度了。離開十分鐘就會重設。'),
+      'boost' => tr('${s['boostLeftSec']} seconds left, then it slows down again.', '還剩 ${s['boostLeftSec']} 秒，之後會再慢下來。'),
+      _ => '',
+    };
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Text('Doomscroll Rehab',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
-                ),
-                plain(zh ? 'EN' : '中文', () => setState(() => zh = !zh)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              stage == 'boost'
-                  ? tr('Boost, ${s['boostLeftSec']} s left', '全速時段，剩 ${s['boostLeftSec']} 秒')
-                  : (stageText[stage] ?? stage),
-              style: TextStyle(fontSize: 14, color: stageColor),
-            ),
+            header,
             const SizedBox(height: 16),
             card([
-              Text(tr('Feed speed', '動態網速'), style: small),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 300),
                 curve: _ease,
-                style: stat,
-                child: Text(speedText),
+                style: stat.copyWith(color: stage == 'off' || stage == 'idle' ? t.text : stageColor),
+                child: Text(heroTitle),
               ),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('Scrolling this session', '這次已滑'), style: small),
-                    Text(_fmtTime(sessionMin), style: stat.copyWith(fontSize: 28)),
-                  ]),
-                ),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(tr('Wait per new video', '每支新影片多等'), style: small),
-                    Text('${(delayMs / 1000).toStringAsFixed(1)} ${tr('s', '秒')}', style: stat.copyWith(fontSize: 28)),
-                  ]),
-                ),
-              ]),
+              const SizedBox(height: 4),
+              Text(heroLine, style: body),
               const SizedBox(height: 16),
               SizedBox(
-                height: 120,
+                height: 96,
                 width: double.infinity,
                 child: CustomPaint(
                   painter: CurvePainter(
@@ -575,181 +836,60 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                tr(
-                  'Full speed for the first ${graceMin.toStringAsFixed(1)} minutes, then slower every minute down to ${minKbps.round()} kbps.',
-                  '前 ${graceMin.toStringAsFixed(1)} 分鐘全速，之後每分鐘更慢，最低降到 ${minKbps.round()} kbps。',
-                ),
+                tr('${_fmtTime(sessionMin)} scrolled this session', '這次已滑 ${_fmtTime(sessionMin)}'),
                 style: small,
               ),
-              const SizedBox(height: 16),
-              Text(tr('Your plan, written by the coach', '教練幫你訂的計畫'), style: h2),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: coachInput,
-                    onSubmitted: (_) => _coach(),
-                    style: body.copyWith(height: 1.3),
-                    decoration: InputDecoration(
-                      hintText: tr('How do you scroll? How long, when?', '你都怎麼滑？多久、什麼時候？'),
-                      hintStyle: body.copyWith(color: t.muted, height: 1.3),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: t.line, width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: t.accent, width: 2),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                plain(coachBusy ? tr('Thinking', '思考中') : tr('Write my plan', '幫我訂'), coachBusy ? null : _coach, on: true),
-              ]),
-              if (coachNote.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(coachNote, style: small.copyWith(color: t.text)),
+              if (!running) ...[
+                const SizedBox(height: 16),
+                primary(tr('Turn on', '開啟'), starting || chosen.isEmpty ? null : _toggle),
               ],
-            ]),
-            card([
-              Text(running ? tr('Slowing these apps', '正在放慢這些 App') : tr('Apps to slow', '要放慢的 App'), style: h2),
-              const SizedBox(height: 8),
-              if (apps.isEmpty)
-                Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final a in apps)
-                    plain(
-                      a['pkg'] == 'com.android.chrome' ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
-                      running
-                          ? null
-                          : () => setState(() {
-                                final pkg = a['pkg'] as String;
-                                chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
-                              }),
-                      on: chosen.contains(a['pkg']),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: starting || (!running && chosen.isEmpty) ? null : _toggle,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: t.accent,
-                    foregroundColor: t.onAccent,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                  ),
-                  child: Text(running ? tr('Turn off', '關閉') : tr('Turn on', '開啟')),
-                ),
-              ),
               if (error != null) ...[
                 const SizedBox(height: 8),
                 Text(error, style: small.copyWith(color: t.bad)),
               ],
-              const SizedBox(height: 8),
-              Text(
-                tr(
-                  'Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
-                  '使用只在這支手機上運作的本機 VPN。它只看得到這些 App 連到哪些伺服器，看不到傳送的內容。',
-                ),
-                style: small,
-              ),
             ]),
-            card([
-              Text(tr('Ask for full speed', '想要回全速'), style: h2),
-              Text(
-                _aiConfigured
-                    ? tr('Negotiator model: $_llmModel', '談判模型：$_llmModel')
-                    : tr('No model configured in this build. Replies are scripted.', '這個版本沒有接上模型，以下是預設回覆。'),
-                style: small,
-              ),
-              const SizedBox(height: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 240),
-                child: ListView(
-                  controller: scroll,
-                  shrinkWrap: true,
-                  children: [
-                    for (final m in chat)
-                      Align(
-                        alignment: m.kind == 'user'
-                            ? Alignment.centerRight
-                            : m.kind == 'note'
-                                ? Alignment.center
-                                : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: m.kind == 'note'
-                              ? EdgeInsets.zero
-                              : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          constraints: const BoxConstraints(maxWidth: 280),
-                          decoration: m.kind == 'note'
-                              ? null
-                              : BoxDecoration(
-                                  color: m.kind == 'bot' ? t.bubble : null,
-                                  border: m.kind == 'user' ? Border.all(color: t.line, width: 0.5) : null,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                          child: Text(m.text, style: m.kind == 'note' ? small : body.copyWith(height: 1.5)),
-                        ),
-                      ),
-                  ],
+            if (running)
+              card([
+                Text(tr('Want full speed back?', '想要回全速？'), style: h2),
+                Text(
+                  tr('Tell it why. It decides, and it remembers what you said.', '跟它說為什麼。由它決定，而且它會記得你說的話。'),
+                  style: small,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: input,
-                    onSubmitted: (_) => _send(),
-                    style: body.copyWith(height: 1.3),
-                    decoration: InputDecoration(
-                      hintText: tr('Why do you want it back?', '為什麼想要回全速？'),
-                      hintStyle: body.copyWith(color: t.muted, height: 1.3),
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: t.line, width: 0.5),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: t.accent, width: 2),
-                      ),
+                const SizedBox(height: 8),
+                if (chat.isNotEmpty)
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: ListView(
+                      controller: scroll,
+                      shrinkWrap: true,
+                      children: [for (final m in chat) bubble(m)],
                     ),
                   ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: input,
+                      onSubmitted: (_) => _send(),
+                      style: body.copyWith(height: 1.3),
+                      decoration: field(tr('Why do you want it back?', '為什麼想要回全速？')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  plain(sending ? tr('Thinking', '思考中') : tr('Send', '送出'), sending ? null : _send, on: true),
+                ]),
+                const SizedBox(height: 8),
+                Text(
+                  tr('${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3} used today',
+                      '今天已用 ${s['grantsToday'] ?? 0} 次，共 ${s['maxGrants'] ?? 3} 次'),
+                  style: small,
                 ),
-                const SizedBox(width: 8),
-                plain(sending ? tr('Thinking', '思考中') : tr('Send', '送出'), sending ? null : _send, on: true),
+                if (!_aiConfigured) Text(tr('No model in this build. Replies are scripted.', '這個版本沒有接上模型，以下是預設回覆。'), style: small),
               ]),
-              const SizedBox(height: 8),
-              Text(
-                tr('${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3} boosts used today',
-                    '今天已用 ${s['grantsToday'] ?? 0} 次全速，共 ${s['maxGrants'] ?? 3} 次'),
-                style: small,
-              ),
-            ]),
-            card([
-              Text(tr('Said versus did', '說的 vs 做的'), style: h2),
-              Text(
-                tr('What you told the negotiator, next to what happened when the boost ran out.',
-                    '你跟談判說的話，對照全速結束後實際發生的事。'),
-                style: small,
-              ),
-              const SizedBox(height: 8),
-              if (promises.isEmpty)
-                Text(tr('No promises yet. Ask for full speed once.', '還沒有承諾。先跟談判要一次全速。'), style: small)
-              else ...[
+            if (promises.isNotEmpty)
+              card([
+                Text(tr('Said versus did', '說的 vs 做的'), style: h2),
+                const SizedBox(height: 4),
                 Text('$keptCount / $decidedCount', style: stat),
                 Text(tr('promises kept, of those already decided', '守住的承諾（已有結果的）'), style: small),
                 const SizedBox(height: 8),
@@ -773,55 +913,133 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ]),
                   ),
-              ],
-              const SizedBox(height: 8),
-              plain(reportBusy ? tr('Thinking', '思考中') : tr('Write my report', '幫我寫報告'), reportBusy ? null : _report,
-                  on: true),
-              if (reportText.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(reportText, style: small.copyWith(color: t.text)),
-              ],
-            ]),
-            card([
-              Text(tr('What the feed apps are loading', '這些 App 正在連的伺服器'), style: h2),
-              Text(tr('Server names only.', '只有伺服器名稱。'), style: small),
-              const SizedBox(height: 8),
-              if (hosts.isEmpty) Text(tr('Nothing yet. Turn it on and open a feed.', '還沒有資料。開啟後打開任一個動態。'), style: small),
-              for (final h in hosts)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(children: [
-                    Expanded(child: Text(h['host'] as String, style: small.copyWith(color: t.text))),
-                    Text(
-                      (h['kb'] as num) >= 1024
-                          ? '${((h['kb'] as num) / 1024).toStringAsFixed(1)} MB'
-                          : '${h['kb']} KB',
-                      style: small,
-                    ),
-                  ]),
-                ),
-            ]),
-            card([
-              Text(tr('Demo controls', '展示控制'), style: h2),
-              Text(tr('Clock speed, so a twenty-minute session fits in a short demo.', '調快時鐘，讓二十分鐘的過程能在短時間內展示完。'),
-                  style: small),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final x in const [1, 10, 30, 60])
-                  plain(x == 1 ? tr('Real time', '正常速度') : '${x}x', () => _demo({'timeScale': x.toDouble()}),
-                      on: timeScale.round() == x),
-                plain(tr('Skip ahead 5 min', '快轉 5 分鐘'), () => _demo({'addMinutes': 5.0})),
-                plain(tr('Reset session', '重設'), () {
-                  setState(() {
-                    chat.clear();
-                    history.clear();
-                    wordsFrom = 0;
-                    reportText = '';
-                  });
-                  _demo({'reset': true});
-                }),
+                plain(reportBusy ? tr('Thinking', '思考中') : tr('What does this say about me?', '這代表什麼？'),
+                    reportBusy ? null : _report,
+                    on: true),
+                if (reportText.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(reportText, style: body.copyWith(height: 1.5)),
+                ],
               ]),
+            card([
+              Text(tr('Your plan', '你的計畫'), style: h2),
+              const SizedBox(height: 4),
+              Text(
+                planNote.isNotEmpty
+                    ? planNote
+                    : tr('The default plan. Talk to the coach and it will fit one to you.', '目前是預設計畫。跟教練聊聊，它會幫你調整。'),
+                style: body.copyWith(height: 1.5),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                tr(
+                  'Day ${day + 1} of 14. Full speed for the first ${graceMin.toStringAsFixed(1)} minutes, slowest ${minKbps.round()} kbps.',
+                  '14 天中的第 ${day + 1} 天。前 ${graceMin.toStringAsFixed(1)} 分鐘全速，最慢 ${minKbps.round()} kbps。',
+                ),
+                style: small,
+              ),
+              const SizedBox(height: 8),
+              plain(tr('Talk to the coach again', '再跟教練聊一次'), _restartSetup),
             ]),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: plain(showDetails ? tr('Hide details', '收起詳細資料') : tr('Details', '詳細資料'),
+                  () => setState(() => showDetails = !showDetails)),
+            ),
+            if (showDetails) ...[
+              const SizedBox(height: 16),
+              card([
+                Text(running ? tr('Slowing these apps', '正在放慢這些 App') : tr('Apps to slow', '要放慢的 App'), style: h2),
+                const SizedBox(height: 8),
+                if (apps.isEmpty)
+                  Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final a in apps)
+                      plain(
+                        a['pkg'] == _chromePkg ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
+                        running
+                            ? null
+                            : () {
+                                setState(() {
+                                  final pkg = a['pkg'] as String;
+                                  chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
+                                });
+                                _saveProfile();
+                              },
+                        on: chosen.contains(a['pkg']),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  tr('Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
+                      '使用只在這支手機上運作的本機 VPN。它只看得到這些 App 連到哪些伺服器，看不到傳送的內容。'),
+                  style: small,
+                ),
+                if (running) ...[
+                  const SizedBox(height: 8),
+                  plain(tr('Turn off', '關閉'), starting ? null : _toggle),
+                ],
+              ]),
+              card([
+                Text(tr('Right now', '目前數值'), style: h2),
+                const SizedBox(height: 4),
+                Text(
+                  tr(
+                    'Speed limit: $speedText. Wait before each new video: ${(delayMs / 1000).toStringAsFixed(1)} s.',
+                    '速度上限：$speedText。每支新影片多等 ${(delayMs / 1000).toStringAsFixed(1)} 秒。',
+                  ),
+                  style: small,
+                ),
+                const SizedBox(height: 8),
+                Text(tr('Servers the feed apps are loading', '這些 App 正在連的伺服器'), style: small.copyWith(color: t.text)),
+                if (hosts.isEmpty) Text(tr('Nothing yet.', '還沒有資料。'), style: small),
+                for (final h in hosts)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(children: [
+                      Expanded(child: Text(h['host'] as String, style: small)),
+                      Text(
+                        (h['kb'] as num) >= 1024
+                            ? '${((h['kb'] as num) / 1024).toStringAsFixed(1)} MB'
+                            : '${h['kb']} KB',
+                        style: small,
+                      ),
+                    ]),
+                  ),
+              ]),
+              card([
+                Text(tr('Demo controls', '展示控制'), style: h2),
+                Text(tr('Clock speed, so a twenty-minute session fits in a short demo.', '調快時鐘，讓二十分鐘的過程能在短時間內展示完。'),
+                    style: small),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final x in const [1, 10, 30, 60])
+                    plain(x == 1 ? tr('Real time', '正常速度') : '${x}x', () => _demo({'timeScale': x.toDouble()}),
+                        on: timeScale.round() == x),
+                  plain(tr('Skip ahead 5 min', '快轉 5 分鐘'), () => _demo({'addMinutes': 5.0})),
+                  plain(tr('Reset session', '重設'), () {
+                    setState(() {
+                      chat.clear();
+                      history.clear();
+                      wordsFrom = 0;
+                      reportText = '';
+                    });
+                    _demo({'reset': true});
+                  }),
+                  plain(tr('Forget me and start over', '清除設定重新開始'), () async {
+                    await _channel.invokeMethod('prefSet', {'key': 'profile', 'value': null});
+                    planNote = '';
+                    instead = '';
+                    _restartSetup();
+                  }),
+                ]),
+              ]),
+            ],
           ],
         ),
       ),
