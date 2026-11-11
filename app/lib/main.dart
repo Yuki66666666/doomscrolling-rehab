@@ -117,6 +117,12 @@ class _HomePageState extends State<HomePage> {
   bool sending = false;
   bool starting = false;
   bool zh = false;
+  final coachInput = TextEditingController();
+  bool coachBusy = false;
+  String coachNote = '';
+  bool reportBusy = false;
+  String reportText = '';
+  int wordsFrom = 0; // history index where the current negotiation started
 
   /// Picks the English or Traditional Chinese string.
   String tr(String en, String zhText) => zh ? zhText : en;
@@ -134,6 +140,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     timer?.cancel();
     input.dispose();
+    coachInput.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -206,7 +213,8 @@ class _HomePageState extends State<HomePage> {
     ].join('\n');
   }
 
-  Future<(String, int)> _askModel() async {
+  /// One chat completion against the configured OpenAI-compatible endpoint.
+  Future<String> _chat(String system, List<Map<String, String>> messages, {int seconds = 30}) async {
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
     try {
       final base = _llmBase.replaceAll(RegExp(r'/+$'), '');
@@ -216,28 +224,141 @@ class _HomePageState extends State<HomePage> {
       req.add(utf8.encode(jsonEncode({
         'model': _llmModel,
         'messages': [
-          {'role': 'system', 'content': _systemPrompt()},
-          ...history,
+          {'role': 'system', 'content': system},
+          ...messages,
         ],
         'temperature': 0.5,
-        'max_tokens': 400,
+        'max_tokens': 600,
       })));
-      final res = await req.close().timeout(const Duration(seconds: 25));
-      final body = await res.transform(utf8.decoder).join();
+      final res = await req.close().timeout(Duration(seconds: seconds));
+      final body = await res.transform(utf8.decoder).join().timeout(Duration(seconds: seconds));
       if (res.statusCode != 200) {
         throw Exception('HTTP ${res.statusCode}');
       }
-      var text = (jsonDecode(body)['choices'][0]['message']['content'] ?? '').toString();
-      text = text.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
-      final a = text.indexOf('{');
-      final b = text.lastIndexOf('}');
-      if (a != -1 && b > a) {
-        final j = jsonDecode(text.substring(a, b + 1)) as Map<String, dynamic>;
-        return ((j['reply'] ?? '').toString(), ((j['grant_minutes'] ?? 0) as num).round());
-      }
-      return (text, 0);
+      final text = (jsonDecode(body)['choices'][0]['message']['content'] ?? '').toString();
+      return text.replaceAll(RegExp(r'<think>[\s\S]*?</think>'), '').trim();
     } finally {
       client.close(force: true);
+    }
+  }
+
+  Map<String, dynamic>? _jsonIn(String text) {
+    final a = text.indexOf('{');
+    final b = text.lastIndexOf('}');
+    if (a == -1 || b <= a) return null;
+    try {
+      return jsonDecode(text.substring(a, b + 1)) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<(String, int)> _askModel() async {
+    final text = await _chat(_systemPrompt(), history);
+    final j = _jsonIn(text);
+    if (j != null) return ((j['reply'] ?? '').toString(), ((j['grant_minutes'] ?? 0) as num).round());
+    return (text, 0);
+  }
+
+  String get _replyLanguageRule => zh
+      ? 'Write in Traditional Chinese as used in Taiwan.'
+      : 'Write in English.';
+
+  // ---------- coach: turns what the user says into their plan ----------
+
+  Future<void> _coach() async {
+    final about = coachInput.text.trim();
+    if (about.isEmpty || coachBusy) return;
+    if (!_aiConfigured) {
+      setState(() => coachNote = tr('No model configured in this build.', '這個版本沒有接上模型。'));
+      return;
+    }
+    setState(() {
+      coachBusy = true;
+      coachNote = tr('The coach is reading what you wrote. This takes about 20 seconds.', '教練正在看你寫的內容，大約需要 20 秒。');
+    });
+    final system = [
+      'You are the coach inside Doomscroll Rehab. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days.',
+      'You set four numbers for this person:',
+      '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. Set it a little under how long their sessions run now, so day 1 barely feels different.',
+      '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who have quit and relapsed before.',
+      '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who say they lose track of time.',
+      '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would remove the app if it stalled.',
+      'Then write note: at most 50 words, to the person, saying why these numbers fit what they told you. No lecturing, no statistics, no field names. $_replyLanguageRule',
+      'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
+    ].join('\n');
+    try {
+      final text = await _chat(system, [
+        {
+          'role': 'user',
+          'content': 'What the person said about their scrolling:\n$about\n\n'
+              'Sessions measured by the app so far:\n${jsonEncode(s['sessions'] ?? [])}',
+        },
+      ], seconds: 75);
+      final j = _jsonIn(text);
+      if (j == null) throw Exception('no JSON in reply');
+      await _channel.invokeMethod('plan', {
+        'startGraceMin': (j['start_grace_min'] as num?)?.toDouble(),
+        'dailyFactor': (j['daily_factor'] as num?)?.toDouble(),
+        'rampMin': (j['ramp_min'] as num?)?.toDouble(),
+        'floorKbps': (j['floor_kbps'] as num?)?.toDouble(),
+      });
+      await _poll();
+      if (!mounted) return;
+      setState(() {
+        coachNote = (j['note'] ?? '').toString();
+        coachInput.clear();
+      });
+    } catch (e) {
+      if (mounted) setState(() => coachNote = tr('Could not reach the coach. $e', '教練沒有回應。$e'));
+    } finally {
+      if (mounted) setState(() => coachBusy = false);
+    }
+  }
+
+  // ---------- report: what you said versus what you did ----------
+
+  Future<void> _report() async {
+    if (reportBusy) return;
+    final promises = (s['promises'] ?? []) as List;
+    if (promises.isEmpty) {
+      setState(() => reportText = tr('Nothing to report yet. Ask for full speed once first.', '還沒有資料。先跟談判要一次全速。'));
+      return;
+    }
+    if (!_aiConfigured) {
+      setState(() => reportText = tr('No model configured in this build.', '這個版本沒有接上模型。'));
+      return;
+    }
+    setState(() {
+      reportBusy = true;
+      reportText = tr('Reading your log. This takes about 20 seconds.', '正在讀你的紀錄，大約需要 20 秒。');
+    });
+    final system = [
+      'You write the usage report inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
+      'You get JSON with: promises (what the user said to get full speed back, the minutes granted, and the outcome: kept means they stopped when it ran out, broken means they kept scrolling, pending means still being checked), finished sessions, and the current session.',
+      'Write summary: at most 70 words, addressed to the person as "you". Where a promise was broken, quote a few of their own words back exactly, in quotation marks. Say plainly how many promises were kept out of how many decided. End with ONE concrete change they could make, in everyday words, and nothing after it.',
+      'No lecturing, no shaming, no statistics from outside this data, no field names. $_replyLanguageRule',
+      'Answer with JSON only: {"summary": "..."}',
+    ].join('\n');
+    try {
+      final text = await _chat(system, [
+        {
+          'role': 'user',
+          'content': jsonEncode({
+            'promises': promises,
+            'finishedSessions': s['sessions'] ?? [],
+            'currentSessionMinutes': s['sessionMin'],
+            'currentSessionMinutesAfterSlowingBegan': s['slowedMin'],
+          }),
+        },
+      ], seconds: 75);
+      final j = _jsonIn(text);
+      if (!mounted) return;
+      setState(() => reportText = (j?['summary'] ?? text).toString());
+    } catch (e) {
+      if (mounted) setState(() => reportText = tr('Could not reach the model. $e', '模型沒有回應。$e'));
+    } finally {
+      if (mounted) setState(() => reportBusy = false);
     }
   }
 
@@ -284,7 +405,11 @@ class _HomePageState extends State<HomePage> {
       (reply, grant) = _scripted();
     }
 
-    final granted = grant > 0 ? (await _channel.invokeMethod<int>('grant', {'minutes': grant}) ?? 0) : 0;
+    // What the user said in this negotiation is stored with the boost, so it can be held against what they do next.
+    final words = history.skip(wordsFrom).where((m) => m['role'] == 'user').map((m) => m['content']).join(' / ');
+    final granted =
+        grant > 0 ? (await _channel.invokeMethod<int>('grant', {'minutes': grant, 'words': words}) ?? 0) : 0;
+    if (granted > 0) wordsFrom = history.length + 1;
     await _poll();
     if (!mounted) return;
     setState(() {
@@ -325,6 +450,9 @@ class _HomePageState extends State<HomePage> {
     final timeScale = (s['timeScale'] ?? 1) as num;
     final hosts = ((s['hosts'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     final error = s['error'] as String?;
+    final promises = ((s['promises'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final keptCount = promises.where((p) => p['outcome'] == 'kept').length;
+    final decidedCount = promises.where((p) => p['outcome'] != 'pending').length;
 
     final stageText = {
       'off': tr('Off', '未開啟'),
@@ -453,6 +581,38 @@ class _HomePageState extends State<HomePage> {
                 ),
                 style: small,
               ),
+              const SizedBox(height: 16),
+              Text(tr('Your plan, written by the coach', '教練幫你訂的計畫'), style: h2),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: coachInput,
+                    onSubmitted: (_) => _coach(),
+                    style: body.copyWith(height: 1.3),
+                    decoration: InputDecoration(
+                      hintText: tr('How do you scroll? How long, when?', '你都怎麼滑？多久、什麼時候？'),
+                      hintStyle: body.copyWith(color: t.muted, height: 1.3),
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: t.line, width: 0.5),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: t.accent, width: 2),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                plain(coachBusy ? tr('Thinking', '思考中') : tr('Write my plan', '幫我訂'), coachBusy ? null : _coach, on: true),
+              ]),
+              if (coachNote.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(coachNote, style: small.copyWith(color: t.text)),
+              ],
             ]),
             card([
               Text(running ? tr('Slowing these apps', '正在放慢這些 App') : tr('Apps to slow', '要放慢的 App'), style: h2),
@@ -580,6 +740,49 @@ class _HomePageState extends State<HomePage> {
               ),
             ]),
             card([
+              Text(tr('Said versus did', '說的 vs 做的'), style: h2),
+              Text(
+                tr('What you told the negotiator, next to what happened when the boost ran out.',
+                    '你跟談判說的話，對照全速結束後實際發生的事。'),
+                style: small,
+              ),
+              const SizedBox(height: 8),
+              if (promises.isEmpty)
+                Text(tr('No promises yet. Ask for full speed once.', '還沒有承諾。先跟談判要一次全速。'), style: small)
+              else ...[
+                Text('$keptCount / $decidedCount', style: stat),
+                Text(tr('promises kept, of those already decided', '守住的承諾（已有結果的）'), style: small),
+                const SizedBox(height: 8),
+                for (final p in promises.reversed)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(
+                        child: Text(tr('"${p['words']}"', '「${p['words']}」'), style: small.copyWith(color: t.text)),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${p['minutes']} ${tr('min', '分')}  ${switch (p['outcome']) {
+                          'kept' => tr('kept', '守住'),
+                          'broken' => tr('broken', '沒守住'),
+                          _ => tr('checking', '確認中'),
+                        }}',
+                        style: small.copyWith(
+                          color: switch (p['outcome']) { 'kept' => t.ok, 'broken' => t.bad, _ => t.muted },
+                        ),
+                      ),
+                    ]),
+                  ),
+              ],
+              const SizedBox(height: 8),
+              plain(reportBusy ? tr('Thinking', '思考中') : tr('Write my report', '幫我寫報告'), reportBusy ? null : _report,
+                  on: true),
+              if (reportText.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(reportText, style: small.copyWith(color: t.text)),
+              ],
+            ]),
+            card([
               Text(tr('What the feed apps are loading', '這些 App 正在連的伺服器'), style: h2),
               Text(tr('Server names only.', '只有伺服器名稱。'), style: small),
               const SizedBox(height: 8),
@@ -612,6 +815,8 @@ class _HomePageState extends State<HomePage> {
                   setState(() {
                     chat.clear();
                     history.clear();
+                    wordsFrom = 0;
+                    reportText = '';
                   });
                   _demo({'reset': true});
                 }),

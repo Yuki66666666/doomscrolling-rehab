@@ -35,6 +35,19 @@ object Engine {
 
     @Volatile var totalBytes = 0L
 
+    /** A boost the negotiator granted, with what the user said to get it. */
+    class Promise(val at: Long, val minutes: Int, val words: String, val expiresAt: Long) {
+        @Volatile var kept: Boolean? = null // null while we are still watching
+    }
+    val promises = java.util.concurrent.CopyOnWriteArrayList<Promise>()
+
+    class Session(val minutes: Double, val slowedMin: Double, val hour: Int)
+    val sessions = java.util.concurrent.CopyOnWriteArrayList<Session>()
+    @Volatile private var slowedMs = 0.0
+
+    /** How long after a boost ends we keep watching before calling the promise kept. */
+    private fun promiseWindowMs(): Long = max(15000.0, 120000.0 / timeScale).toLong()
+
     class HostStat(@Volatile var bytes: Long, @Volatile var last: Long)
     val hosts = ConcurrentHashMap<String, HostStat>()
 
@@ -111,19 +124,35 @@ object Engine {
         }
     }
 
-    fun grant(minutes: Int): Int {
+    fun grant(minutes: Int, words: String): Int {
         if (grantsToday >= MAX_GRANTS) return 0
         val m = minutes.coerceIn(0, MAX_GRANT_MIN)
         if (m == 0) return 0
         grantsToday += 1
-        boostUntil = System.currentTimeMillis() + max(20000.0, m * 60000.0 / timeScale).toLong()
+        val now = System.currentTimeMillis()
+        boostUntil = now + max(20000.0, m * 60000.0 / timeScale).toLong()
+        promises.add(Promise(now, m, words.take(300), boostUntil))
+        if (promises.size > 100) promises.removeAt(0)
         return m
     }
 
     fun reset() {
         sessionMs = 0.0
+        slowedMs = 0.0
         boostUntil = 0L
         grantsToday = 0
+        promises.clear()
+        sessions.clear()
+    }
+
+    /** A promise is broken if feed traffic went through after the boost ended, kept if none did. */
+    private fun judgePromises(now: Long) {
+        for (p in promises) {
+            if (p.kept != null || now <= p.expiresAt) continue
+            if (lastActive > p.expiresAt + 2000) p.kept = false
+            else if (now > p.expiresAt + promiseWindowMs()) p.kept = true
+            if (p.kept != null) android.util.Log.i("Rehab", "promise ${if (p.kept == true) "kept" else "broken"}: ${p.words}")
+        }
     }
 
     fun startTicker() {
@@ -153,10 +182,23 @@ object Engine {
                     lastLog = now
                     lastLogBytes = totalBytes
                 }
+                judgePromises(now)
                 if (isActive()) {
-                    if (!boosted()) sessionMs += dt * timeScale
+                    if (!boosted()) {
+                        sessionMs += dt * timeScale
+                        if (!inGrace()) slowedMs += dt * timeScale
+                    }
                 } else if (sessionMs > 0 && now - lastActive > idleResetMs()) {
+                    sessions.add(
+                        Session(
+                            sessionMs / 60000.0,
+                            slowedMs / 60000.0,
+                            java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
+                        ),
+                    )
+                    if (sessions.size > 100) sessions.removeAt(0)
                     sessionMs = 0.0
+                    slowedMs = 0.0
                 }
             }
         }
@@ -206,6 +248,21 @@ object Engine {
             "maxGrants" to MAX_GRANTS,
             "hosts" to top,
             "port" to port,
+            "promises" to promises.map {
+                mapOf(
+                    "words" to it.words,
+                    "minutes" to it.minutes,
+                    "outcome" to when (it.kept) { true -> "kept"; false -> "broken"; null -> "pending" },
+                )
+            },
+            "sessions" to sessions.map { mapOf("minutes" to it.minutes, "slowedMin" to it.slowedMin, "hour" to it.hour) },
+            "slowedMin" to slowedMs / 60000.0,
+            "plan4" to mapOf(
+                "startGraceMin" to startGraceMin,
+                "dailyFactor" to dailyFactor,
+                "rampMin" to rampMin,
+                "floorKbps" to floorKbps,
+            ),
         )
     }
 }

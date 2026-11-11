@@ -58,7 +58,9 @@ class MainActivity : FlutterActivity() {
                     result.success(snap)
                 }
 
-                "grant" -> result.success(Engine.grant(call.argument<Int>("minutes") ?: 0))
+                "grant" -> result.success(
+                    Engine.grant(call.argument<Int>("minutes") ?: 0, call.argument<String>("words") ?: ""),
+                )
 
                 "demo" -> {
                     if (call.argument<Boolean>("reset") == true) Engine.reset()
@@ -95,6 +97,9 @@ class MainActivity : FlutterActivity() {
         if (intent.hasExtra("addMinutes")) {
             Engine.sessionMs = maxOf(0.0, Engine.sessionMs + intent.getFloatExtra("addMinutes", 0f) * 60000.0)
             Engine.lastActive = System.currentTimeMillis()
+        }
+        if (intent.hasExtra("grant")) {
+            Engine.grant(intent.getIntExtra("grant", 0), intent.getStringExtra("words") ?: "")
         }
     }
 
