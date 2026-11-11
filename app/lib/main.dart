@@ -1443,7 +1443,19 @@ class _HomePageState extends State<HomePage> {
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final m in const [1, 5, 10])
           plain(tr('+$m min', '+$m 分鐘'), () => _demo({'addMinutes': m.toDouble()}), on: true),
-        plain(tr('Reset', '重設'), () {
+      ]),
+      const SizedBox(height: 16),
+      // Two ways to start again between takes.
+      Text(tr('Start again', '重新開始'), style: small.copyWith(color: t.text)),
+      const SizedBox(height: 4),
+      Text(
+        tr('"This run" puts the clock back to zero and clears the chat and promises. "From the opening" also forgets your answers, so Slo introduces itself again.',
+            '「這一輪」會把時間歸零，並清掉對話和承諾紀錄。「從開場」還會忘掉你的回答，慢慢會重新自我介紹。'),
+        style: small,
+      ),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        plain(tr('Restart this run', '重來這一輪'), () {
           setState(() {
             chat.clear();
             history.clear();
@@ -1451,7 +1463,20 @@ class _HomePageState extends State<HomePage> {
             reportText = '';
           });
           _demo({'reset': true});
-        }),
+        }, on: true),
+        plain(tr('Restart from the opening', '從開場重來'), () async {
+          setState(() {
+            chat.clear();
+            history.clear();
+            wordsFrom = 0;
+            reportText = '';
+          });
+          await _demo({'reset': true});
+          await _channel.invokeMethod('prefSet', {'key': 'profile', 'value': null});
+          planNote = '';
+          instead = '';
+          _restartSetup();
+        }, on: true),
       ]),
       const SizedBox(height: 12),
       Text(tr('Clock speed', '時鐘速度'), style: small),
