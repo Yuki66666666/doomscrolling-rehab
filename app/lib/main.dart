@@ -116,10 +116,15 @@ class _HomePageState extends State<HomePage> {
   Timer? timer;
   bool sending = false;
   bool starting = false;
+  bool zh = false;
+
+  /// Picks the English or Traditional Chinese string.
+  String tr(String en, String zhText) => zh ? zhText : en;
 
   @override
   void initState() {
     super.initState();
+    zh = WidgetsBinding.instance.platformDispatcher.locale.languageCode == 'zh';
     _loadApps();
     _poll();
     timer = Timer.periodic(const Duration(seconds: 1), (_) => _poll());
@@ -193,7 +198,9 @@ class _HomePageState extends State<HomePage> {
       '- If they give a specific reason and a specific stopping point, grant a boost. Grant less than they ask for when they are vague.',
       '- If they just say "because I want to", ask what they were hoping to feel, once. If they are still vague, grant nothing and offer one small alternative they could do in two minutes.',
       '- If all boosts for today are used, say so plainly and grant nothing.',
-      '- Keep every reply under 45 words. Reply in the language the user writes in.',
+      zh
+          ? '- Keep every reply under 60 Chinese characters. Reply in Traditional Chinese as used in Taiwan, unless the user writes in another language.'
+          : '- Keep every reply under 45 words. Reply in the language the user writes in.',
       '',
       'Answer with JSON only, no other text: {"reply": "<what you say>", "grant_minutes": <integer 0 to 10>}',
     ].join('\n');
@@ -237,10 +244,18 @@ class _HomePageState extends State<HomePage> {
   (String, int) _scripted() {
     final used = (s['grantsToday'] ?? 0) as num;
     final max = (s['maxGrants'] ?? 3) as num;
-    if (used >= max) return ('You have used all $max boosts for today. The feed stays slow until tomorrow.', 0);
+    if (used >= max) {
+      return (
+        tr('You have used all $max boosts for today. The feed stays slow until tomorrow.',
+            '今天的 $max 次全速都用完了，明天之前會維持慢速。'),
+        0
+      );
+    }
     final turns = history.where((m) => m['role'] == 'user').length;
-    if (turns <= 1) return ('What do you want from the next few minutes on the feed?', 0);
-    return ('Okay. Five minutes at full speed, then it slows again.', 5);
+    if (turns <= 1) {
+      return (tr('What do you want from the next few minutes on the feed?', '接下來這幾分鐘，你想從動態裡得到什麼？'), 0);
+    }
+    return (tr('Okay. Five minutes at full speed, then it slows again.', '好，給你五分鐘全速，之後會再慢下來。'), 5);
   }
 
   Future<void> _send() async {
@@ -263,7 +278,7 @@ class _HomePageState extends State<HomePage> {
         if (reply.isEmpty) throw Exception('empty reply');
       } catch (e) {
         (reply, grant) = _scripted();
-        note = 'Model call failed, scripted reply shown. $e';
+        note = tr('Model call failed, scripted reply shown. $e', '模型沒有回應，以下是預設回覆。$e');
       }
     } else {
       (reply, grant) = _scripted();
@@ -276,7 +291,7 @@ class _HomePageState extends State<HomePage> {
       history.add({'role': 'assistant', 'content': reply});
       chat.add(ChatLine('bot', reply));
       if (note != null) chat.add(ChatLine('note', note));
-      if (granted > 0) chat.add(ChatLine('note', 'Full speed for $granted minutes'));
+      if (granted > 0) chat.add(ChatLine('note', tr('Full speed for $granted minutes', '全速 $granted 分鐘')));
       sending = false;
     });
     _scrollDown();
@@ -311,13 +326,13 @@ class _HomePageState extends State<HomePage> {
     final hosts = ((s['hosts'] ?? []) as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     final error = s['error'] as String?;
 
-    const stageText = {
-      'off': 'Off',
-      'idle': 'On, waiting for a feed',
-      'full': 'Full speed',
-      'slowing': 'Slowing down',
-      'floor': 'At the floor',
-      'boost': 'Boost active',
+    final stageText = {
+      'off': tr('Off', '未開啟'),
+      'idle': tr('On, waiting for a feed', '已開啟，等你打開動態'),
+      'full': tr('Full speed', '全速'),
+      'slowing': tr('Slowing down', '正在變慢'),
+      'floor': tr('At the floor', '已降到最慢'),
+      'boost': tr('Boost active', '全速時段'),
     };
     final stageColor = switch (stage) {
       'full' || 'boost' => t.ok,
@@ -326,9 +341,9 @@ class _HomePageState extends State<HomePage> {
       _ => t.muted,
     };
     final speedText = !running
-        ? 'Off'
+        ? tr('Off', '未開啟')
         : kbps == null
-            ? 'Full'
+            ? tr('Full', '全速')
             : kbps >= 1000
                 ? '${(kbps / 1000).toStringAsFixed(1)} Mbps'
                 : '${kbps.round()} kbps';
@@ -383,14 +398,18 @@ class _HomePageState extends State<HomePage> {
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
                 ),
                 Text(
-                  stage == 'boost' ? 'Boost, ${s['boostLeftSec']} s left' : (stageText[stage] ?? stage),
+                  stage == 'boost'
+                      ? tr('Boost, ${s['boostLeftSec']} s left', '全速時段，剩 ${s['boostLeftSec']} 秒')
+                      : (stageText[stage] ?? stage),
                   style: TextStyle(fontSize: 14, color: stageColor),
                 ),
+                const SizedBox(width: 12),
+                plain(zh ? 'EN' : '中文', () => setState(() => zh = !zh)),
               ],
             ),
             const SizedBox(height: 16),
             card([
-              Text('Feed speed', style: small),
+              Text(tr('Feed speed', '動態網速'), style: small),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 300),
                 curve: _ease,
@@ -401,14 +420,14 @@ class _HomePageState extends State<HomePage> {
               Row(children: [
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Scrolling this session', style: small),
+                    Text(tr('Scrolling this session', '這次已滑'), style: small),
                     Text(_fmtTime(sessionMin), style: stat.copyWith(fontSize: 28)),
                   ]),
                 ),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Wait per new video', style: small),
-                    Text('${(delayMs / 1000).toStringAsFixed(1)} s', style: stat.copyWith(fontSize: 28)),
+                    Text(tr('Wait per new video', '每支新影片多等'), style: small),
+                    Text('${(delayMs / 1000).toStringAsFixed(1)} ${tr('s', '秒')}', style: stat.copyWith(fontSize: 28)),
                   ]),
                 ),
               ]),
@@ -428,21 +447,25 @@ class _HomePageState extends State<HomePage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Full speed for the first ${graceMin.toStringAsFixed(1)} minutes, then slower every minute down to ${minKbps.round()} kbps.',
+                tr(
+                  'Full speed for the first ${graceMin.toStringAsFixed(1)} minutes, then slower every minute down to ${minKbps.round()} kbps.',
+                  '前 ${graceMin.toStringAsFixed(1)} 分鐘全速，之後每分鐘更慢，最低降到 ${minKbps.round()} kbps。',
+                ),
                 style: small,
               ),
             ]),
             card([
-              Text(running ? 'Slowing these apps' : 'Apps to slow', style: h2),
+              Text(running ? tr('Slowing these apps', '正在放慢這些 App') : tr('Apps to slow', '要放慢的 App'), style: h2),
               const SizedBox(height: 8),
-              if (apps.isEmpty) Text('No supported feed app is installed on this phone.', style: small),
+              if (apps.isEmpty)
+                Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
                   for (final a in apps)
                     plain(
-                      a['label'] as String,
+                      a['pkg'] == 'com.android.chrome' ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
                       running
                           ? null
                           : () => setState(() {
@@ -466,7 +489,7 @@ class _HomePageState extends State<HomePage> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                   ),
-                  child: Text(running ? 'Turn off' : 'Turn on'),
+                  child: Text(running ? tr('Turn off', '關閉') : tr('Turn on', '開啟')),
                 ),
               ),
               if (error != null) ...[
@@ -475,14 +498,19 @@ class _HomePageState extends State<HomePage> {
               ],
               const SizedBox(height: 8),
               Text(
-                'Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
+                tr(
+                  'Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
+                  '使用只在這支手機上運作的本機 VPN。它只看得到這些 App 連到哪些伺服器，看不到傳送的內容。',
+                ),
                 style: small,
               ),
             ]),
             card([
-              Text('Ask for full speed', style: h2),
+              Text(tr('Ask for full speed', '想要回全速'), style: h2),
               Text(
-                _aiConfigured ? 'Negotiator model: $_llmModel' : 'No model configured in this build. Replies are scripted.',
+                _aiConfigured
+                    ? tr('Negotiator model: $_llmModel', '談判模型：$_llmModel')
+                    : tr('No model configured in this build. Replies are scripted.', '這個版本沒有接上模型，以下是預設回覆。'),
                 style: small,
               ),
               const SizedBox(height: 8),
@@ -526,7 +554,7 @@ class _HomePageState extends State<HomePage> {
                     onSubmitted: (_) => _send(),
                     style: body.copyWith(height: 1.3),
                     decoration: InputDecoration(
-                      hintText: 'Why do you want it back?',
+                      hintText: tr('Why do you want it back?', '為什麼想要回全速？'),
                       hintStyle: body.copyWith(color: t.muted, height: 1.3),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -542,16 +570,20 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                plain(sending ? 'Thinking' : 'Send', sending ? null : _send, on: true),
+                plain(sending ? tr('Thinking', '思考中') : tr('Send', '送出'), sending ? null : _send, on: true),
               ]),
               const SizedBox(height: 8),
-              Text('${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3} boosts used today', style: small),
+              Text(
+                tr('${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3} boosts used today',
+                    '今天已用 ${s['grantsToday'] ?? 0} 次全速，共 ${s['maxGrants'] ?? 3} 次'),
+                style: small,
+              ),
             ]),
             card([
-              Text('What the feed apps are loading', style: h2),
-              Text('Server names only.', style: small),
+              Text(tr('What the feed apps are loading', '這些 App 正在連的伺服器'), style: h2),
+              Text(tr('Server names only.', '只有伺服器名稱。'), style: small),
               const SizedBox(height: 8),
-              if (hosts.isEmpty) Text('Nothing yet. Turn it on and open a feed.', style: small),
+              if (hosts.isEmpty) Text(tr('Nothing yet. Turn it on and open a feed.', '還沒有資料。開啟後打開任一個動態。'), style: small),
               for (final h in hosts)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -567,15 +599,16 @@ class _HomePageState extends State<HomePage> {
                 ),
             ]),
             card([
-              Text('Demo controls', style: h2),
-              Text('Clock speed, so a twenty-minute session fits in a short demo.', style: small),
+              Text(tr('Demo controls', '展示控制'), style: h2),
+              Text(tr('Clock speed, so a twenty-minute session fits in a short demo.', '調快時鐘，讓二十分鐘的過程能在短時間內展示完。'),
+                  style: small),
               const SizedBox(height: 8),
               Wrap(spacing: 8, runSpacing: 8, children: [
                 for (final x in const [1, 10, 30, 60])
-                  plain(x == 1 ? 'Real time' : '${x}x', () => _demo({'timeScale': x.toDouble()}),
+                  plain(x == 1 ? tr('Real time', '正常速度') : '${x}x', () => _demo({'timeScale': x.toDouble()}),
                       on: timeScale.round() == x),
-                plain('Skip ahead 5 min', () => _demo({'addMinutes': 5.0})),
-                plain('Reset session', () {
+                plain(tr('Skip ahead 5 min', '快轉 5 分鐘'), () => _demo({'addMinutes': 5.0})),
+                plain(tr('Reset session', '重設'), () {
                   setState(() {
                     chat.clear();
                     history.clear();
