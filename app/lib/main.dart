@@ -459,6 +459,29 @@ class _HomePageState extends State<HomePage> {
   bool starting = false;
   bool showDetails = false; // the demo controls
   bool showSettings = false;
+  final demoSmooth = TextEditingController(text: '10');
+  final demoStuck = TextEditingController(text: '30');
+  String demoMsg = '';
+
+  /// Demo only: full speed until [demoSmooth] seconds, completely stuck from [demoStuck] seconds.
+  Future<void> _applyTimeline() async {
+    final a = int.tryParse(demoSmooth.text.trim());
+    final b = int.tryParse(demoStuck.text.trim());
+    if (a == null || b == null || b <= a) {
+      setState(() => demoMsg = tr('The second number must be larger than the first.', '第二個數字要比第一個大。'));
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => demoMsg = '');
+    await _channel.invokeMethod('demoTimeline', {'smoothSec': a.toDouble(), 'stuckSec': b.toDouble()});
+    await _poll();
+  }
+
+  Future<void> _clearTimeline() async {
+    setState(() => demoMsg = '');
+    await _channel.invokeMethod('demoTimeline', {'clear': true});
+    await _poll();
+  }
 
   // Setup: step 0 picks the apps, steps 1..n are the questions, the last step shows the plan
   bool onboarded = false;
@@ -500,6 +523,8 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     timer?.cancel();
     input.dispose();
+    demoSmooth.dispose();
+    demoStuck.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -1317,6 +1342,17 @@ class _HomePageState extends State<HomePage> {
             : '${kbps.round()} kbps';
     final appNames = apps.where((a) => chosen.contains(a['pkg'])).map((a) => a['label']).toSet().join(tr(', ', '、'));
 
+    // While a demo timeline is on, everything is counted in seconds.
+    final demoSmoothSec = s['demoSmoothSec'] as num?;
+    final demoStuckSec = s['demoStuckSec'] as num?;
+    final demoOn = demoSmoothSec != null && demoStuckSec != null;
+    final sessionSec = ((s['sessionSec'] ?? sessionMin * 60) as num).floor();
+    final firstSpan = demoOn
+        ? tr('${demoSmoothSec.round()} seconds', '${demoSmoothSec.round()} 秒')
+        : tr('${graceMin.round()} minutes', '${graceMin.round()} 分鐘');
+    final scrolledSpan =
+        demoOn ? tr('$sessionSec seconds', '$sessionSec 秒') : tr('${sessionMin.round()} minutes', '${sessionMin.round()} 分鐘');
+
     final stageColor = switch (stage) {
       'full' || 'boost' => t.ok,
       'slowing' => t.warn,
@@ -1336,16 +1372,16 @@ class _HomePageState extends State<HomePage> {
     final heroLine = switch (stage) {
       'off' => tr('Turn it on and $appNames will get slower the longer you scroll.', '開啟後，$appNames 會越滑越慢。'),
       'idle' => tr(
-          'Open $appNames whenever you like. The first ${graceMin.toStringAsFixed(0)} minutes are at full speed.',
-          '想滑的時候就打開 $appNames。前 ${graceMin.toStringAsFixed(0)} 分鐘是全速。',
+          'Open $appNames whenever you like. The first $firstSpan are at full speed.',
+          '想滑的時候就打開 $appNames。前 $firstSpan是全速。',
         ),
       'full' => tr(
           'Another ${_fmtTime(left)} at full speed. After that it gets slower every minute.',
           '還有 ${_fmtTime(left)} 的全速，之後每分鐘都會更慢。',
         ),
       'slowing' => tr(
-          'You have been scrolling for ${sessionMin.round()} minutes. The feed is slowing and will keep dropping.',
-          '你已經滑了 ${sessionMin.round()} 分鐘。影片正在變慢，還會繼續變慢。',
+          'You have been scrolling for $scrolledSpan. The feed is slowing and will keep dropping.',
+          '你已經滑了 $scrolledSpan。影片正在變慢，還會繼續變慢。',
         ),
       'floor' => instead.isNotEmpty
           ? tr('This is the slowest it goes. You said you would rather: $instead', '這是最慢的速度了。你說過你比較想：$instead')
@@ -1357,7 +1393,52 @@ class _HomePageState extends State<HomePage> {
     // ----- demo: pretend time has passed, so every stage can be shown in a short recording -----
     final demoCard = card([
       Text(tr('Demo', '展示用'), style: h2),
-      Text(tr('Pretend you have already scrolled this much longer.', '假裝已經又滑了這麼久。'), style: small),
+      const SizedBox(height: 8),
+      Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        for (final (label, c) in [
+          (tr('Smooth until (s)', '順暢到第幾秒'), demoSmooth),
+          (tr('Stuck from (s)', '第幾秒完全卡住'), demoStuck),
+        ]) ...[
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(label, style: small),
+              const SizedBox(height: 4),
+              TextField(
+                controller: c,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
+                style: body.copyWith(height: 1.3, fontSize: 20, fontFeatures: const [FontFeature.tabularFigures()]),
+                decoration: field(''),
+              ),
+            ]),
+          ),
+          if (!identical(c, demoStuck)) const SizedBox(width: 12),
+        ],
+      ]),
+      const SizedBox(height: 4),
+      Text(
+        tr('In between it slows down. The clock starts when you begin scrolling, not when you press the button.',
+            '中間那段會慢慢降速。按下按鈕不會開始計時，要等你開始滑才算。'),
+        style: small,
+      ),
+      if (demoMsg.isNotEmpty) Text(demoMsg, style: small.copyWith(color: t.bad)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        plain(tr('Apply and start over', '套用並從頭開始'), _applyTimeline, on: true),
+        if (demoOn) plain(tr('Back to my real plan', '回到我的計畫'), _clearTimeline),
+      ]),
+      if (demoOn) ...[
+        const SizedBox(height: 8),
+        Text(
+          tr(
+            'Demo timeline on: smooth to ${demoSmoothSec.round()} s, stuck at ${demoStuckSec.round()} s. Now at $sessionSec s.',
+            '展示時間軸：順暢到 ${demoSmoothSec.round()} 秒，${demoStuckSec.round()} 秒卡住。現在第 $sessionSec 秒。',
+          ),
+          style: small.copyWith(color: t.text),
+        ),
+      ],
+      const SizedBox(height: 16),
+      Text(tr('Or pretend you have already scrolled this much longer.', '或是假裝已經又滑了這麼久。'), style: small),
       const SizedBox(height: 8),
       Wrap(spacing: 8, runSpacing: 8, children: [
         for (final m in const [1, 5, 10])
@@ -1675,8 +1756,8 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               Text(
                 tr(
-                  'Day ${day + 1} of 14. Full speed for the first ${graceMin.round()} minutes, a little less each day.',
-                  '14 天中的第 ${day + 1} 天。前 ${graceMin.round()} 分鐘全速，每天再少一點。',
+                  'Day ${day + 1} of 14. Full speed for the first $firstSpan, a little less each day.',
+                  '14 天中的第 ${day + 1} 天。前 $firstSpan全速，每天再少一點。',
                 ),
                 style: small,
               ),
