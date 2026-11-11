@@ -31,7 +31,13 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "rehab").setMethodCallHandler { call, result ->
             when (call.method) {
                 "apps" -> result.success(knownApps.map { (pkg, label) ->
-                    mapOf("pkg" to pkg, "label" to label, "installed" to isInstalled(pkg))
+                    val installed = isInstalled(pkg)
+                    mapOf(
+                        "pkg" to pkg,
+                        "label" to label,
+                        "installed" to installed,
+                        "icon" to if (installed) iconPng(pkg) else null,
+                    )
                 })
 
                 "start" -> {
@@ -115,6 +121,21 @@ class MainActivity : FlutterActivity() {
         if (intent.hasExtra("grant")) {
             Engine.grant(intent.getIntExtra("grant", 0), intent.getStringExtra("words") ?: "")
         }
+    }
+
+    /** The app's own launcher icon as PNG bytes, so people can pick by picture. */
+    private fun iconPng(pkg: String): ByteArray? = try {
+        val drawable = packageManager.getApplicationIcon(pkg)
+        val size = 144
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, size, size)
+        drawable.draw(canvas)
+        val out = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        out.toByteArray()
+    } catch (e: Exception) {
+        null
     }
 
     private fun isInstalled(pkg: String): Boolean = try {

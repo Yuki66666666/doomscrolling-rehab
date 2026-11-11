@@ -16,6 +16,45 @@ bool get _aiConfigured => _llmBase.isNotEmpty && _llmKey.isNotEmpty && _llmModel
 const _ease = Cubic(0.22, 1, 0.36, 1);
 const _chromePkg = 'com.android.chrome';
 
+class Option {
+  const Option(this.key, this.en, this.zh);
+  final String key, en, zh;
+}
+
+class Question {
+  const Question(this.key, this.en, this.zh, this.options);
+  final String key, en, zh;
+  final List<Option> options;
+}
+
+// Setup is one question per screen, answered with a tap. No typing.
+const _questions = [
+  Question('length', 'How long do you usually scroll at a time?', '你一次通常滑多久？', [
+    Option('15', 'About 15 minutes', '大約 15 分鐘'),
+    Option('30', 'About half an hour', '大約半小時'),
+    Option('60', 'About an hour', '大約一小時'),
+    Option('120', 'Two hours or more', '兩小時以上'),
+  ]),
+  Question('when', 'When is it hardest to stop?', '什麼時候最難停下來？', [
+    Option('morning', 'Right after waking up', '早上剛起床'),
+    Option('day', 'During work or class', '上班或上課的時候'),
+    Option('evening', 'After work', '下班回家後'),
+    Option('bed', 'In bed before sleep', '睡前躺在床上'),
+  ]),
+  Question('tried', 'Have you tried to cut back before?', '以前試過少滑一點嗎？', [
+    Option('never', 'Not really', '沒有特別試過'),
+    Option('limit', 'Set a time limit, then ignored it', '設過時間限制，但都直接略過'),
+    Option('blocker', 'Used a blocker app, then removed it', '裝過鎖 App 的工具，後來刪了'),
+    Option('deleted', 'Deleted the app, then came back', '把 App 刪掉過，後來又裝回來'),
+  ]),
+  Question('instead', 'What would you rather do with that time?', '那段時間你比較想拿來做什麼？', [
+    Option('sleep', 'Sleep earlier', '早點睡'),
+    Option('people', 'Be with family or friends', '陪家人或朋友'),
+    Option('move', 'Exercise or go outside', '運動或出門走走'),
+    Option('focus', 'Read, study or finish my work', '看書、學東西或把事情做完'),
+  ]),
+];
+
 void main() => runApp(const RehabApp());
 
 class Tokens {
@@ -115,14 +154,12 @@ class _HomePageState extends State<HomePage> {
   bool starting = false;
   bool showDetails = false;
 
-  // Setup conversation
+  // Setup: step 0 picks the apps, steps 1..n are the questions, the last step shows the plan
   bool onboarded = false;
-  bool obBusy = false;
-  bool obDone = false;
-  final List<ChatLine> obChat = [];
-  final List<Map<String, String>> obHistory = [];
-  final obInput = TextEditingController();
-  final obScroll = ScrollController();
+  int step = 0;
+  final Map<String, String> answers = {};
+  bool planning = false;
+  bool planFromModel = false;
   String planNote = '';
   String instead = '';
   Map<String, double> planNums = {};
@@ -142,11 +179,6 @@ class _HomePageState extends State<HomePage> {
   /// Picks the English or Traditional Chinese string.
   String tr(String en, String zhText) => zh ? zhText : en;
 
-  String get _firstQuestion => tr(
-        'Hi. I will set this up for you, it takes about a minute. Which app do you lose the most time in?',
-        '嗨，我來幫你設定，大概一分鐘。你最常滑到停不下來的是哪個 App？',
-      );
-
   String get _languageRule =>
       zh ? 'Write in Traditional Chinese as used in Taiwan.' : 'Write in English.';
 
@@ -162,9 +194,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     timer?.cancel();
     input.dispose();
-    obInput.dispose();
     scroll.dispose();
-    obScroll.dispose();
     super.dispose();
   }
 
@@ -193,7 +223,6 @@ class _HomePageState extends State<HomePage> {
     } catch (_) {
       // no saved profile, or it could not be read: start the setup conversation
     }
-    if (!onboarded) obChat.add(ChatLine('bot', _firstQuestion));
     await _poll();
     if (mounted) setState(() => loaded = true);
   }
@@ -240,11 +269,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _switchLanguage() {
-    setState(() {
-      zh = !zh;
-      // The opening question is ours, not the model's, so it can follow the switch.
-      if (!onboarded && obHistory.isEmpty && obChat.isNotEmpty) obChat[0] = ChatLine('bot', _firstQuestion);
-    });
+    setState(() => zh = !zh);
     if (onboarded) _saveProfile();
   }
 
@@ -290,118 +315,100 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // ---------- setup conversation: the model gets to know you, then configures everything ----------
+  // ---------- setup: taps in, a plan out ----------
 
-  String _setupPrompt() {
-    final names = apps.where((a) => a['pkg'] != _chromePkg).map((a) => a['label']).toSet().join(', ');
-    final turns = obHistory.where((m) => m['role'] == 'user').length;
-    return [
-      'You are setting up Doomscroll Rehab for a new user by talking with them. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days. To get full speed back the user has to ask you and say why.',
-      'You already opened with: "$_firstQuestion"',
-      'Ask ONE short question per turn. Be warm and plain. Never lecture, never quote statistics.',
-      'You need to learn: (1) which app pulls them in, (2) when it happens and how long a session usually runs, (3) what they tried before and why it did not last, (4) what they would rather be doing with that time. Skip anything they already told you.',
-      turns >= 4
-          ? 'This is the last turn. You must finish now with done=true.'
-          : 'Ask at most three more questions, then finish. Finish earlier if you already know enough.',
-      'Feed apps installed on this phone: $names',
-      'When you finish, set:',
-      '- apps: which of the installed apps to slow, using the exact names above. Include the ones they named; include the rest only if they said they scroll everywhere.',
-      '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. A little under how long their sessions run now, so day 1 barely feels different.',
-      '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who quit and relapsed before.',
-      '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who lose track of time.',
-      '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would delete the app if it stalled.',
-      '- instead: what they said they would rather do, in their own words, under 12 words.',
-      '- reply: two or three sentences in everyday words saying what will happen the next time they scroll and why it fits what they told you. No field names.',
-      _languageRule,
-      'Answer with JSON only. While asking: {"reply": "<your question>", "done": false}. When finishing: {"reply": "...", "done": true, "apps": ["..."], "start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "instead": "..."}',
-    ].join('\n');
+  String _answerText(String key, {bool english = false}) {
+    final q = _questions.firstWhere((x) => x.key == key);
+    final match = q.options.where((o) => o.key == answers[key]);
+    if (match.isEmpty) return '';
+    return english || !zh ? match.first.en : match.first.zh;
   }
 
-  // Used only when no model is configured or the call fails. The screen says so.
-  Map<String, dynamic> _setupScripted() {
-    final answers = obHistory.where((m) => m['role'] == 'user').map((m) => m['content']!).toList();
-    if (answers.length == 1) {
-      return {'reply': tr('When does it usually happen, and for how long?', '通常是什麼時候滑？一次大概多久？'), 'done': false};
-    }
-    if (answers.length == 2) {
-      return {'reply': tr('What would you rather be doing with that time?', '那段時間你其實比較想做什麼？'), 'done': false};
-    }
+  /// The plan that follows from the answers by plain rules. Used as is when no model answers.
+  Map<String, double> _rulePlan() {
+    final length = double.tryParse(answers['length'] ?? '') ?? 30;
+    final tried = answers['tried'] ?? 'never';
     return {
-      'reply': tr(
-        'Here is a starting plan. The first ten minutes of a session stay at full speed, then the feed gets slower every minute. Each day the full-speed part gets a little shorter.',
-        '先用這個計畫開始：每次打開的前十分鐘全速，之後每分鐘更慢。全速的時間每天會再短一點。',
-      ),
-      'done': true,
-      'apps': <String>[],
-      'start_grace_min': 10,
-      'daily_factor': 0.93,
-      'ramp_min': 15,
-      'floor_kbps': 40,
-      'instead': answers.last,
+      // a little under how long they scroll now, so day one barely feels different
+      'startGraceMin': (length * 0.6).clamp(5, 30).toDouble(),
+      // gentler for people who quit before and came back
+      'dailyFactor': tried == 'blocker' || tried == 'deleted' ? 0.96 : (tried == 'limit' ? 0.94 : 0.92),
+      // shorter slope at bedtime, when people lose track of time
+      'rampMin': answers['when'] == 'bed' ? 8 : 15,
+      // blurry but watchable for people who removed a blocker, so they do not remove this too
+      'floorKbps': tried == 'blocker' ? 200 : 40,
     };
   }
 
-  Future<void> _setupSend() async {
-    final text = obInput.text.trim();
-    if (text.isEmpty || obBusy || obDone) return;
-    obInput.clear();
-    setState(() {
-      obBusy = true;
-      obChat.add(ChatLine('user', text));
-      obHistory.add({'role': 'user', 'content': text});
-    });
-    _scrollDown(obScroll);
+  String _ruleNote(Map<String, double> p) => tr(
+        'The first ${p['startGraceMin']!.round()} minutes each time are at full speed. After that the videos load a little slower every minute. Each day the full-speed part gets slightly shorter.',
+        '每次打開的前 ${p['startGraceMin']!.round()} 分鐘是全速，之後影片會每分鐘慢一點。全速的時間每天會再短一點點。',
+      );
 
-    Map<String, dynamic>? j;
-    String? note;
+  Future<void> _makePlan() async {
+    setState(() {
+      planning = true;
+      planFromModel = false;
+    });
+    var plan = _rulePlan();
+    var note = _ruleNote(plan);
+    instead = _answerText('instead');
+
     if (_aiConfigured) {
+      final names = apps.where((a) => chosen.contains(a['pkg'])).map((a) => a['label']).toSet().join(', ');
+      final system = [
+        'You are the coach inside Doomscroll Rehab. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days.',
+        'From the answers a new user tapped, set four numbers:',
+        '- start_grace_min (2 to 30): minutes of full speed at the start of a session on day 1. A little under how long their sessions run now, so day 1 barely feels different.',
+        '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who quit before and came back.',
+        '- ramp_min (5 to 30): minutes to fall from full speed to the slowest. Shorter for people who lose track of time, such as in bed.',
+        '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who removed a blocker before.',
+        'Then write note for the user: two or three short sentences, the way you would explain it to a parent who is not technical. Say what will happen the next time they open the app they picked, and connect it to one thing they told you. No numbers except minutes. No words like kbps, VPN, taper, parameter. $_languageRule',
+        'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
+      ].join('\n');
+      final user = [
+        'Apps they picked: $names',
+        'How long they scroll at a time: ${_answerText('length', english: true)}',
+        'Hardest time to stop: ${_answerText('when', english: true)}',
+        'Tried before: ${_answerText('tried', english: true)}',
+        'Would rather be doing: ${_answerText('instead', english: true)}',
+      ].join('\n');
       try {
-        j = _jsonIn(await _chat(_setupPrompt(), obHistory, seconds: 60));
-        if (j == null || (j['reply'] ?? '').toString().isEmpty) throw Exception('empty reply');
-      } catch (e) {
-        j = null;
-        note = tr('Model call failed, scripted question shown. $e', '模型沒有回應，以下是預設問題。$e');
+        final j = _jsonIn(await _chat(system, [
+          {'role': 'user', 'content': user},
+        ], seconds: 45));
+        if (j == null || (j['note'] ?? '').toString().isEmpty) throw Exception('empty reply');
+        double pick(String key, String mine, double lo, double hi) =>
+            j[key] is num ? (j[key] as num).toDouble().clamp(lo, hi).toDouble() : plan[mine]!;
+        plan = {
+          'startGraceMin': pick('start_grace_min', 'startGraceMin', 2, 30),
+          'dailyFactor': pick('daily_factor', 'dailyFactor', 0.85, 0.98),
+          'rampMin': pick('ramp_min', 'rampMin', 5, 30),
+          'floorKbps': pick('floor_kbps', 'floorKbps', 20, 300),
+        };
+        note = j['note'].toString();
+        planFromModel = true;
+      } catch (_) {
+        // keep the rule-based plan; the screen says which one this is
       }
-    } else {
-      note = obHistory.length == 1 ? tr('No model in this build. Questions are scripted.', '這個版本沒有接上模型，問題是預設的。') : null;
     }
-    j ??= _setupScripted();
-    final reply = j['reply'].toString();
-    final done = j['done'] == true;
-    if (done) await _applySetup(j, reply);
-    if (!mounted) return;
-    setState(() {
-      obHistory.add({'role': 'assistant', 'content': reply});
-      obChat.add(ChatLine('bot', reply));
-      if (note != null) obChat.add(ChatLine('note', note));
-      obDone = done;
-      obBusy = false;
-    });
-    _scrollDown(obScroll);
-  }
 
-  Future<void> _applySetup(Map<String, dynamic> j, String reply) async {
-    double num_(String key, double fallback) => (j[key] is num) ? (j[key] as num).toDouble() : fallback;
-    final wanted = ((j['apps'] ?? []) as List).map((e) => e.toString().toLowerCase()).toSet();
-    chosen.clear();
-    for (final a in apps) {
-      if (a['pkg'] == _chromePkg) continue;
-      if (wanted.isEmpty || wanted.contains((a['label'] as String).toLowerCase())) chosen.add(a['pkg'] as String);
-    }
-    if (chosen.isEmpty) {
-      chosen.addAll(apps.where((a) => a['pkg'] != _chromePkg).map((a) => a['pkg'] as String));
-    }
-    planNums = {
-      'startGraceMin': num_('start_grace_min', 10),
-      'dailyFactor': num_('daily_factor', 0.93),
-      'rampMin': num_('ramp_min', 15),
-      'floorKbps': num_('floor_kbps', 40),
-    };
-    planNote = reply;
-    instead = (j['instead'] ?? '').toString();
+    planNums = plan;
+    planNote = note;
     await _channel.invokeMethod('plan', planNums);
     await _saveProfile();
     await _poll();
+    if (mounted) setState(() => planning = false);
+  }
+
+  void _answer(String key, String option) {
+    setState(() => answers[key] = option);
+    // Let the tap show as selected before the next question comes in.
+    Future<void>.delayed(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      setState(() => step += 1);
+      if (step == _questions.length + 1) _makePlan();
+    });
   }
 
   Future<void> _finishSetup({bool turnOn = true}) async {
@@ -416,12 +423,9 @@ class _HomePageState extends State<HomePage> {
   void _restartSetup() {
     setState(() {
       onboarded = false;
-      obDone = false;
-      obBusy = false;
-      obHistory.clear();
-      obChat
-        ..clear()
-        ..add(ChatLine('bot', _firstQuestion));
+      planning = false;
+      step = 0;
+      answers.clear();
     });
   }
 
@@ -686,8 +690,132 @@ class _HomePageState extends State<HomePage> {
       return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: header)));
     }
 
-    // ----- first run: a conversation instead of a settings screen -----
+    // ----- first run: one question per screen, answered with a tap -----
     if (!onboarded) {
+      final total = _questions.length + 1;
+      final big = TextStyle(fontSize: 18, height: 1.4, color: t.text, fontWeight: FontWeight.w400);
+      final title = TextStyle(fontSize: 22, height: 1.35, color: t.text, fontWeight: FontWeight.w500);
+
+      Widget choice({required Widget child, required bool on, required VoidCallback onTap}) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Material(
+              color: t.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: on ? t.text : t.line, width: on ? 2 : 0.5),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: onTap,
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 64),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  alignment: Alignment.centerLeft,
+                  child: child,
+                ),
+              ),
+            ),
+          );
+
+      Widget tick(bool on) => Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: on ? t.text : null,
+              border: Border.all(color: on ? t.text : t.line, width: 1.5),
+            ),
+          );
+
+      final List<Widget> content;
+      Widget? footer;
+
+      if (step == 0) {
+        final pickable = apps.where((a) => a['pkg'] != _chromePkg).toList();
+        content = [
+          Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: title),
+          const SizedBox(height: 4),
+          Text(tr('Tap all that apply.', '可以選好幾個。'), style: small),
+          const SizedBox(height: 16),
+          if (pickable.isEmpty)
+            Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: big),
+          for (final a in pickable)
+            choice(
+              on: chosen.contains(a['pkg']),
+              onTap: () => setState(() {
+                final pkg = a['pkg'] as String;
+                chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
+              }),
+              child: Row(children: [
+                if (a['icon'] != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.memory(a['icon'] as Uint8List, width: 40, height: 40, gaplessPlayback: true),
+                  ),
+                const SizedBox(width: 16),
+                Expanded(child: Text(a['label'] as String, style: big)),
+                tick(chosen.contains(a['pkg'])),
+              ]),
+            ),
+        ];
+        footer = primary(tr('Next', '下一步'), chosen.isEmpty ? null : () => setState(() => step = 1));
+      } else if (step <= _questions.length) {
+        final q = _questions[step - 1];
+        content = [
+          Text(zh ? q.zh : q.en, style: title),
+          const SizedBox(height: 16),
+          for (final o in q.options)
+            choice(
+              on: answers[q.key] == o.key,
+              onTap: () => _answer(q.key, o.key),
+              child: Text(zh ? o.zh : o.en, style: big),
+            ),
+        ];
+      } else if (planning) {
+        content = [
+          Text(tr('Setting it up for you', '正在幫你設定'), style: title),
+          const SizedBox(height: 16),
+          LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
+          const SizedBox(height: 16),
+          Text(
+            tr('Working out a plan from your answers. This takes about ten seconds.', '正在根據你的回答訂計畫，大約需要十秒。'),
+            style: big,
+          ),
+        ];
+      } else {
+        content = [
+          Text(tr('It is set up', '設定好了'), style: title),
+          const SizedBox(height: 16),
+          Text(planNote, style: big),
+          const SizedBox(height: 16),
+          Row(children: [
+            for (final a in apps.where((a) => chosen.contains(a['pkg']) && a['icon'] != null))
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(a['icon'] as Uint8List, width: 36, height: 36, gaplessPlayback: true),
+                ),
+              ),
+          ]),
+          const SizedBox(height: 16),
+          Text(
+            _aiConfigured && !planFromModel
+                ? tr('The coach did not answer, so this is the standard plan for your answers.', '教練沒有回應，這是依照你的回答套用的標準計畫。')
+                : tr('You can change any of this later.', '之後都可以再調整。'),
+            style: small,
+          ),
+        ];
+        footer = Column(mainAxisSize: MainAxisSize.min, children: [
+          primary(tr('Start', '開始'), starting ? null : () => _finishSetup()),
+          const SizedBox(height: 8),
+          Text(
+            tr('Your phone will ask to allow a VPN. Tap OK. It stays on this phone.', '手機會問你要不要允許 VPN，按「確定」就好。它只在這支手機上運作。'),
+            style: small,
+          ),
+        ]);
+      }
+
       return Scaffold(
         body: SafeArea(
           child: Padding(
@@ -696,48 +824,25 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 header,
-                const SizedBox(height: 4),
-                Text(
-                  tr('A few questions, then it sets itself up.', '回答幾個問題，它會自己設定好。'),
-                  style: small,
-                ),
-                const SizedBox(height: 12),
-                Expanded(
-                  child: ListView(
-                    controller: obScroll,
-                    children: [
-                      for (final m in obChat) bubble(m),
-                      if (obBusy) bubble(ChatLine('note', tr('Thinking', '思考中'))),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 8),
-                if (obDone) ...[
-                  primary(tr('Turn it on', '開始'), starting ? null : () => _finishSetup()),
-                  const SizedBox(height: 8),
-                  Text(
-                    tr('Android will ask to allow a VPN. It stays on this phone and only sees which servers those apps talk to.',
-                        'Android 會詢問是否允許 VPN。它只在這支手機上運作，只看得到那些 App 連到哪些伺服器。'),
-                    style: small,
-                  ),
-                ] else
-                  Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: obInput,
-                        onSubmitted: (_) => _setupSend(),
-                        style: body.copyWith(height: 1.3),
-                        decoration: field(tr('Type your answer', '輸入你的回答')),
-                      ),
+                Row(children: [
+                  if (step > 0 && !planning)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: plain(tr('Back', '上一步'), () => setState(() => step -= 1)),
                     ),
-                    const SizedBox(width: 8),
-                    plain(tr('Send', '送出'), obBusy ? null : _setupSend, on: true),
-                  ]),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: plain(tr('Skip, use the default plan', '跳過，用預設計畫'), () => _finishSetup(turnOn: false)),
-                ),
+                  Text('${(step + 1).clamp(1, total)} / $total', style: small),
+                ]),
+                const SizedBox(height: 16),
+                Expanded(child: ListView(children: content)),
+                if (footer != null) ...[const SizedBox(height: 8), footer],
+                if (step <= _questions.length) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: plain(tr('Skip the questions', '跳過問題'), () => _finishSetup(turnOn: false)),
+                  ),
+                ],
               ],
             ),
           ),
@@ -865,6 +970,23 @@ class _HomePageState extends State<HomePage> {
                       children: [for (final m in chat) bubble(m)],
                     ),
                   ),
+                const SizedBox(height: 8),
+                // Answers people can tap instead of typing. What they tap is still recorded as what they said.
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final quick in [
+                    tr('One more video, then I stop', '再看一支就停'),
+                    tr('I need to reply to someone', '我要回一則訊息'),
+                    tr('Five more minutes', '再五分鐘'),
+                  ])
+                    plain(
+                        quick,
+                        sending
+                            ? null
+                            : () {
+                                input.text = quick;
+                                _send();
+                              }),
+                ]),
                 const SizedBox(height: 8),
                 Row(children: [
                   Expanded(
