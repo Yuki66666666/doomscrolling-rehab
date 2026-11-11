@@ -22,9 +22,10 @@ class Option {
 }
 
 class Question {
-  const Question(this.key, this.en, this.zh, this.options);
+  const Question(this.key, this.en, this.zh, this.options, {this.multi = true});
   final String key, en, zh;
   final List<Option> options;
+  final bool multi; // several answers can be ticked
 }
 
 // Setup is one question per screen, answered with a tap. No typing.
@@ -34,7 +35,7 @@ const _questions = [
     Option('30', 'About half an hour', '大約半小時'),
     Option('60', 'About an hour', '大約一小時'),
     Option('120', 'Two hours or more', '兩小時以上'),
-  ]),
+  ], multi: false),
   Question('when', 'When is it hardest to stop?', '什麼時候最難停下來？', [
     Option('morning', 'Right after waking up', '早上剛起床'),
     Option('day', 'During work or class', '上班或上課的時候'),
@@ -480,33 +481,38 @@ class _HomePageState extends State<HomePage> {
 
   // ---------- setup: taps in, a plan out ----------
 
+  /// The option keys ticked for a question. Several answers are stored comma-separated.
+  Set<String> _picked(String key) => (answers[key] ?? '').split(',').where((s) => s.isNotEmpty).toSet();
+
   String _answerText(String key, {bool english = false}) {
     final q = _questions.firstWhere((x) => x.key == key);
-    final match = q.options.where((o) => o.key == answers[key]);
-    if (match.isEmpty) return '';
-    return english || !zh ? match.first.en : match.first.zh;
+    final picked = _picked(key);
+    final useEnglish = english || !zh;
+    return q.options
+        .where((o) => picked.contains(o.key))
+        .map((o) => useEnglish ? o.en : o.zh)
+        .join(useEnglish ? '; ' : '、');
   }
 
   /// The plan that follows from the answers by plain rules. Used as is when no model answers.
   Map<String, double> _rulePlan() {
     final length = double.tryParse(answers['length'] ?? '') ?? 30;
-    final tried = answers['tried'] ?? 'never';
+    final tried = _picked('tried');
+    final quitBefore = tried.contains('blocker') || tried.contains('deleted');
     return {
       // a little under how long they scroll now, so day one barely feels different
       'startGraceMin': (length * 0.6).clamp(5, 30).toDouble(),
       // gentler for people who quit before and came back
-      'dailyFactor': tried == 'blocker' || tried == 'deleted' ? 0.96 : (tried == 'limit' ? 0.94 : 0.92),
+      'dailyFactor': quitBefore ? 0.96 : (tried.contains('limit') ? 0.94 : 0.92),
       // shorter slope at bedtime, when people lose track of time
-      'rampMin': answers['when'] == 'bed' ? 8 : 15,
+      'rampMin': _picked('when').contains('bed') ? 8 : 15,
       // blurry but watchable for people who removed a blocker, so they do not remove this too
-      'floorKbps': tried == 'blocker' ? 200 : 40,
+      'floorKbps': tried.contains('blocker') ? 200 : 40,
     };
   }
 
-  String _ruleNote(Map<String, double> p) => tr(
-        'The first ${p['startGraceMin']!.round()} minutes each time are at full speed. After that the videos load a little slower every minute. Each day the full-speed part gets slightly shorter.',
-        '每次打開的前 ${p['startGraceMin']!.round()} 分鐘是全速，之後影片會每分鐘慢一點。全速的時間每天會再短一點點。',
-      );
+  // One line only. The picture under it explains what happens.
+  String _ruleNote(Map<String, double> p) => tr('All set. Here is what happens when you scroll.', '設定好了。你滑的時候會像這樣。');
 
   Future<void> _makePlan() async {
     setState(() {
@@ -526,7 +532,7 @@ class _HomePageState extends State<HomePage> {
         '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Closer to 1 is gentler. Use gentler values for people who quit before and came back.',
         '- ramp_min (5 to 30): minutes to fall from full speed to the slowest. Shorter for people who lose track of time, such as in bed.',
         '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who removed a blocker before.',
-        'Then write note for the user: two or three short sentences, the way you would explain it to a parent who is not technical. Say what will happen the next time they open the app they picked, and connect it to one thing they told you. No numbers except minutes. No words like kbps, VPN, taper, parameter. $_languageRule',
+        'Then write note for the user: ONE short sentence, at most 14 English words or 22 Chinese characters, that a person reads at a glance. Do not explain how the app works and do not mention minutes or speeds; a picture next to it already shows that. Only say, warmly, how the plan fits one thing they told you. No words like kbps, VPN, taper, parameter. $_languageRule',
         'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
       ].join('\n');
       final user = [
@@ -551,9 +557,13 @@ class _HomePageState extends State<HomePage> {
         };
         note = j['note'].toString();
         planFromModel = true;
-      } catch (_) {
+        debugPrint('Rehab coach: plan written by $_llmModel $plan');
+      } catch (e) {
         // keep the rule-based plan; the screen says which one this is
+        debugPrint('Rehab coach: model did not answer ($e), rule-based plan used');
       }
+    } else {
+      debugPrint('Rehab coach: no model in this build, rule-based plan used');
     }
 
     planNums = plan;
@@ -564,13 +574,24 @@ class _HomePageState extends State<HomePage> {
     if (mounted) setState(() => planning = false);
   }
 
-  void _answer(String key, String option) {
-    setState(() => answers[key] = option);
+  void _nextStep() {
+    setState(() => step += 1);
+    if (step == _questions.length + 1) _makePlan();
+  }
+
+  /// One-answer questions move on by themselves; several-answer questions tick and wait for "Next".
+  void _answer(Question q, String option) {
+    if (q.multi) {
+      final picked = _picked(q.key);
+      picked.contains(option) ? picked.remove(option) : picked.add(option);
+      // keep the order the options are listed in
+      setState(() => answers[q.key] = q.options.map((o) => o.key).where(picked.contains).join(','));
+      return;
+    }
+    setState(() => answers[q.key] = option);
     // Let the tap show as selected before the next question comes in.
     Future<void>.delayed(const Duration(milliseconds: 180), () {
-      if (!mounted) return;
-      setState(() => step += 1);
-      if (step == _questions.length + 1) _makePlan();
+      if (mounted) _nextStep();
     });
   }
 
@@ -925,6 +946,56 @@ class _HomePageState extends State<HomePage> {
             ),
           );
 
+      // What happens next, as three little phone screens: clear, fading, stuck.
+      Widget planPicture() {
+        final grace = (planNums['startGraceMin'] ?? 10).round();
+        final slowest = grace + (planNums['rampMin'] ?? 15).round();
+        Widget screen(double strength, {bool stuck = false}) => Container(
+              width: 56,
+              height: 84,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: t.text, width: 1.5),
+              ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: t.text.withValues(alpha: strength),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                alignment: Alignment.center,
+                child: stuck
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: t.text),
+                      )
+                    : null,
+              ),
+            );
+        Widget stage(Widget picture, String label, String when) => Expanded(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                picture,
+                const SizedBox(height: 8),
+                Text(label, style: body.copyWith(height: 1.3, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+                Text(when, style: small, textAlign: TextAlign.center),
+              ]),
+            );
+        return SizedBox(
+          width: 264,
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            stage(screen(0.85), tr('Normal', '正常'), tr('first $grace min', '前 $grace 分鐘')),
+            stage(screen(0.35), tr('Slower', '越來越慢'), tr('after that', '之後')),
+            // a gentle plan never stalls video completely, so it is only called blurry
+            stage(
+              screen(0.08, stuck: true),
+              (planNums['floorKbps'] ?? 40) <= 100 ? tr('Stuck', '卡住') : tr('Very blurry', '很糊'),
+              tr('at $slowest min', '第 $slowest 分鐘'),
+            ),
+          ]),
+        );
+      }
+
       final pickedNames = apps
           .where((a) => chosen.contains(a['pkg']))
           .map((a) => a['label'] as String)
@@ -945,7 +1016,15 @@ class _HomePageState extends State<HomePage> {
             delayMs: 1500),
         if (step > 0) youSaid('a0', pickedNames),
         for (var i = 1; i <= n && i <= step; i++) ...[
-          ghostSays('q$i', Text(zh ? _questions[i - 1].zh : _questions[i - 1].en, style: big), delayMs: 350),
+          ghostSays(
+            'q$i',
+            Text(
+              (zh ? _questions[i - 1].zh : _questions[i - 1].en) +
+                  (_questions[i - 1].multi ? tr(' You can pick more than one.', '可以選好幾個。') : ''),
+              style: big,
+            ),
+            delayMs: 350,
+          ),
           if (step > i) youSaid('a$i', _answerText(_questions[i - 1].key)),
         ],
         if (step > n)
@@ -964,7 +1043,16 @@ class _HomePageState extends State<HomePage> {
                   delayMs: 350,
                   typingMs: 500,
                 )
-              : ghostSays('plan', Text(planNote, style: big), delayMs: 0, typingMs: 600),
+              : ghostSays(
+                  'plan',
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(planNote, style: big),
+                    const SizedBox(height: 12),
+                    planPicture(),
+                  ]),
+                  delayMs: 0,
+                  typingMs: 600,
+                ),
       ];
 
       // What you can tap right now.
@@ -996,9 +1084,12 @@ class _HomePageState extends State<HomePage> {
         footer = primary(tr('These ones', '就這些'), chosen.isEmpty ? null : () => setState(() => step = 1));
       } else if (step <= n) {
         final q = _questions[step - 1];
+        final picked = _picked(q.key);
         for (final o in q.options) {
-          choices.add(option(zh ? o.zh : o.en, answers[q.key] == o.key, () => _answer(q.key, o.key)));
+          final on = picked.contains(o.key);
+          choices.add(option(zh ? o.zh : o.en, on, () => _answer(q, o.key), trailing: q.multi ? tick(on) : null));
         }
+        if (q.multi) footer = primary(tr('Next', '下一步'), picked.isEmpty ? null : _nextStep);
       } else if (!planning) {
         footer = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           primary(tr('Start', '開始'), starting ? null : () => _finishSetup()),
