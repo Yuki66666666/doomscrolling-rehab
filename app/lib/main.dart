@@ -219,8 +219,114 @@ class _GhostLineState extends State<GhostLine> {
   }
 }
 
+/// The one filled button. Pressing it shrinks and darkens it; letting go springs it back past
+/// full size before it settles, with a tick you can feel and hear.
+class PressButton extends StatefulWidget {
+  const PressButton({
+    super.key,
+    required this.label,
+    required this.onTap,
+    required this.color,
+    required this.onColor,
+    required this.pressedColor,
+    required this.offColor,
+    required this.onOffColor,
+  });
+  final String label;
+  final VoidCallback? onTap;
+  final Color color, onColor, pressedColor, offColor, onOffColor;
+
+  @override
+  State<PressButton> createState() => _PressButtonState();
+}
+
+class _PressButtonState extends State<PressButton> with SingleTickerProviderStateMixin {
+  late final AnimationController c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 120),
+    reverseDuration: const Duration(milliseconds: 380),
+  );
+  // easeInBack run backwards dips below zero at the end, which is the overshoot
+  late final Animation<double> press = CurvedAnimation(parent: c, curve: _ease, reverseCurve: Curves.easeInBack);
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  Future<void> _release() async {
+    // a quick tap still shows the whole press before it springs back
+    try {
+      await c.forward();
+      if (mounted) await c.reverse();
+    } on TickerCanceled {
+      // the button left the screen mid-press
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: widget.label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: enabled
+            ? (_) {
+                HapticFeedback.lightImpact();
+                c.forward();
+              }
+            : null,
+        onTapCancel: enabled ? () => c.reverse() : null,
+        onTap: enabled
+            ? () {
+                SystemSound.play(SystemSoundType.click);
+                _release();
+                widget.onTap!();
+              }
+            : null,
+        child: AnimatedBuilder(
+          animation: press,
+          builder: (context, _) => Transform.scale(
+            scale: 1 - 0.05 * press.value,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: _ease,
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 56),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: enabled
+                    ? Color.lerp(widget.color, widget.pressedColor, press.value.clamp(0.0, 1.0))
+                    : widget.offColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 18,
+                  height: 1.3,
+                  fontWeight: FontWeight.w500,
+                  color: enabled ? widget.onColor : widget.onOffColor,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 void main() => runApp(const RehabApp());
 
+/// Colours from the app icon: lavender white and deep plum, the spinner's violet as the
+/// second colour, and its magenta kept for the one main button on each screen.
 class Tokens {
   const Tokens({
     required this.bg,
@@ -230,40 +336,49 @@ class Tokens {
     required this.line,
     required this.accent,
     required this.onAccent,
+    required this.accentPressed,
+    required this.second,
+    required this.onSecond,
     required this.ok,
     required this.warn,
     required this.bad,
     required this.bubble,
   });
 
-  final Color bg, surface, text, muted, line, accent, onAccent, ok, warn, bad, bubble;
+  final Color bg, surface, text, muted, line, accent, onAccent, accentPressed, second, onSecond, ok, warn, bad, bubble;
 
   static const light = Tokens(
-    bg: Color(0xFFF6F7F8),
-    surface: Color(0xFFFFFFFF),
-    text: Color(0xFF15181C),
-    muted: Color(0xFF5D6670),
-    line: Color(0x3315181C),
-    accent: Color(0xFF1F5FD6),
-    onAccent: Color(0xFFFFFFFF),
+    bg: Color(0xFFFAF5FF),
+    surface: Color(0xFFFEFCFF),
+    text: Color(0xFF2E1A47),
+    muted: Color(0xFF5F4E7A),
+    line: Color(0x332E1A47),
+    accent: Color(0xFFFF2DD0),
+    onAccent: Color(0xFF2E1A47),
+    accentPressed: Color(0xFFE01FB6),
+    second: Color(0xFF6D4BC3),
+    onSecond: Color(0xFFFAF5FF),
     ok: Color(0xFF1C7A4A),
-    warn: Color(0xFFA35A00),
+    warn: Color(0xFF9A5200),
     bad: Color(0xFFB3261E),
-    bubble: Color(0xFFEEF0F2),
+    bubble: Color(0xFFEDE9FE),
   );
 
   static const dark = Tokens(
-    bg: Color(0xFF101214),
-    surface: Color(0xFF181B1F),
-    text: Color(0xFFECEEF0),
-    muted: Color(0xFF9AA3AD),
-    line: Color(0x3DECEEF0),
-    accent: Color(0xFF7FA8FF),
-    onAccent: Color(0xFF0C1220),
+    bg: Color(0xFF0A0B18),
+    surface: Color(0xFF14152A),
+    text: Color(0xFFF3EEFF),
+    muted: Color(0xFFA9A2C4),
+    line: Color(0x3DF3EEFF),
+    accent: Color(0xFFFF4FD8),
+    onAccent: Color(0xFF1A0B2E),
+    accentPressed: Color(0xFFE03BBD),
+    second: Color(0xFF6D4BC3),
+    onSecond: Color(0xFFF3EEFF),
     ok: Color(0xFF6FD3A0),
     warn: Color(0xFFF0B060),
     bad: Color(0xFFFF8A80),
-    bubble: Color(0xFF22262B),
+    bubble: Color(0xFF22224A),
   );
 
   static Tokens of(BuildContext context) =>
@@ -287,7 +402,14 @@ class RehabApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: t.accent,
           brightness: dark ? Brightness.dark : Brightness.light,
-        ).copyWith(primary: t.accent, onPrimary: t.onAccent, surface: t.surface),
+        ).copyWith(
+          primary: t.second,
+          onPrimary: t.onSecond,
+          secondary: t.second,
+          onSecondary: t.onSecond,
+          surface: t.surface,
+          onSurface: t.text,
+        ),
         splashFactory: NoSplash.splashFactory,
       ),
       home: const HomePage(),
@@ -771,7 +893,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final t = Tokens.of(context);
-    final small = TextStyle(fontSize: 14, height: 1.5, color: t.muted, fontWeight: FontWeight.w400);
+    final small = TextStyle(fontSize: 15, height: 1.5, color: t.muted, fontWeight: FontWeight.w400);
     final body = TextStyle(fontSize: 16, height: 1.7, color: t.text, fontWeight: FontWeight.w400);
     final h2 = TextStyle(fontSize: 16, height: 1.5, color: t.text, fontWeight: FontWeight.w500);
     final stat = TextStyle(
@@ -798,30 +920,26 @@ class _HomePageState extends State<HomePage> {
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
             foregroundColor: t.text,
-            side: BorderSide(color: on ? t.text : t.line, width: on ? 1 : 0.5),
+            disabledForegroundColor: t.muted,
+            backgroundColor: on ? t.bubble : null,
+            side: BorderSide(color: on ? t.second : t.line, width: on ? 1.5 : 0.5),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            minimumSize: Size.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            minimumSize: const Size(48, 48),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            textStyle: TextStyle(fontSize: 14, fontWeight: on ? FontWeight.w500 : FontWeight.w400),
+            textStyle: TextStyle(fontSize: 15, fontWeight: on ? FontWeight.w500 : FontWeight.w400),
           ),
           child: Text(label),
         );
 
-    Widget primary(String label, VoidCallback? onTap) => SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            onPressed: onTap,
-            style: FilledButton.styleFrom(
-              backgroundColor: t.accent,
-              foregroundColor: t.onAccent,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-            child: Text(label),
-          ),
+    Widget primary(String label, VoidCallback? onTap) => PressButton(
+          label: label,
+          onTap: onTap,
+          color: t.accent,
+          onColor: t.onAccent,
+          pressedColor: t.accentPressed,
+          offColor: t.bubble,
+          onOffColor: t.muted,
         );
 
     InputDecoration field(String hint) => InputDecoration(
@@ -835,7 +953,7 @@ class _HomePageState extends State<HomePage> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: t.accent, width: 2),
+            borderSide: BorderSide(color: t.second, width: 2),
           ),
         );
 
@@ -850,10 +968,10 @@ class _HomePageState extends State<HomePage> {
       final box = Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isGhost ? t.bubble : t.text,
+          color: isGhost ? t.bubble : t.second,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(m.text, style: body.copyWith(height: 1.5, color: isGhost ? t.text : t.bg)),
+        child: Text(m.text, style: body.copyWith(height: 1.5, color: isGhost ? t.text : t.onSecond)),
       );
       return Padding(
         padding: EdgeInsets.only(top: 4, bottom: 4, left: isGhost ? 0 : 48, right: isGhost ? 24 : 0),
@@ -905,8 +1023,8 @@ class _HomePageState extends State<HomePage> {
                 alignment: Alignment.centerRight,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(color: t.text, borderRadius: BorderRadius.circular(16)),
-                  child: Text(text, style: big.copyWith(color: t.bg)),
+                  decoration: BoxDecoration(color: t.second, borderRadius: BorderRadius.circular(16)),
+                  child: Text(text, style: big.copyWith(color: t.onSecond)),
                 ),
               ),
             ),
@@ -915,10 +1033,10 @@ class _HomePageState extends State<HomePage> {
       Widget option(String label, bool on, VoidCallback onTap, {Widget? leading, Widget? trailing}) => Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
-              color: t.surface,
+              color: on ? t.bubble : t.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: on ? t.text : t.line, width: on ? 2 : 0.5),
+                side: BorderSide(color: on ? t.second : t.line, width: on ? 2 : 0.5),
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
@@ -936,13 +1054,21 @@ class _HomePageState extends State<HomePage> {
             ),
           );
 
-      Widget tick(bool on) => Container(
-            width: 24,
-            height: 24,
+      Widget tick(bool on) => AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            curve: _ease,
+            width: 26,
+            height: 26,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: on ? t.text : null,
-              border: Border.all(color: on ? t.text : t.line, width: 1.5),
+              color: on ? t.second : t.surface,
+              border: Border.all(color: on ? t.second : t.line, width: 1.5),
+            ),
+            child: AnimatedScale(
+              scale: on ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              curve: _ease,
+              child: Icon(Icons.check_rounded, size: 18, color: t.onSecond),
             ),
           );
 
@@ -955,12 +1081,13 @@ class _HomePageState extends State<HomePage> {
               height: 84,
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: t.text, width: 1.5),
+                color: t.surface,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: t.second, width: 1.5),
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  color: t.text.withValues(alpha: strength),
+                  color: t.second.withValues(alpha: strength),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 alignment: Alignment.center,
@@ -968,9 +1095,9 @@ class _HomePageState extends State<HomePage> {
                     ? SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.5, color: t.text),
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: t.second),
                       )
-                    : null,
+                    : Icon(Icons.play_arrow_rounded, size: 24, color: t.surface),
               ),
             );
         Widget stage(Widget picture, String label, String when) => Expanded(
@@ -984,8 +1111,8 @@ class _HomePageState extends State<HomePage> {
         return SizedBox(
           width: 264,
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            stage(screen(0.85), tr('Normal', '正常'), tr('first $grace min', '前 $grace 分鐘')),
-            stage(screen(0.35), tr('Slower', '越來越慢'), tr('after that', '之後')),
+            stage(screen(1), tr('Normal', '正常'), tr('first $grace min', '前 $grace 分鐘')),
+            stage(screen(0.4), tr('Slower', '越來越慢'), tr('after that', '之後')),
             // a gentle plan never stalls video completely, so it is only called blurry
             stage(
               screen(0.08, stuck: true),
@@ -1037,7 +1164,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 12),
                     SizedBox(
                       width: 160,
-                      child: LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
+                      child: LinearProgressIndicator(minHeight: 4, color: t.second, backgroundColor: t.line),
                     ),
                   ]),
                   delayMs: 350,
@@ -1248,7 +1375,7 @@ class _HomePageState extends State<HomePage> {
                     sessionMin: sessionMin.toDouble(),
                     graceMin: graceMin.toDouble(),
                     rampMin: rampMin.toDouble(),
-                    line: t.text,
+                    line: t.second,
                     faint: t.line,
                   ),
                 ),
