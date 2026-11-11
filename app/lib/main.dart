@@ -61,6 +61,163 @@ Widget _ghost(double size) => ClipRRect(
       child: Image.asset('assets/ghost.png', width: size, height: size),
     );
 
+/// Shows its child once, growing from 80 percent with a small overshoot. Untappable until it starts.
+class PopIn extends StatefulWidget {
+  const PopIn({super.key, required this.child, this.delayMs = 0, this.alignment = Alignment.centerLeft});
+  final Widget child;
+  final int delayMs;
+  final Alignment alignment;
+
+  @override
+  State<PopIn> createState() => _PopInState();
+}
+
+class _PopInState extends State<PopIn> with SingleTickerProviderStateMixin {
+  late final AnimationController c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
+  Timer? timer;
+
+  @override
+  void initState() {
+    super.initState();
+    timer = Timer(Duration(milliseconds: widget.delayMs), () {
+      if (mounted) c.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: c,
+        child: widget.child,
+        builder: (context, child) => IgnorePointer(
+          ignoring: c.value == 0,
+          child: Opacity(
+            opacity: Curves.easeOut.transform(c.value),
+            child: Transform.scale(
+              scale: 0.8 + 0.2 * Curves.easeOutBack.transform(c.value),
+              alignment: widget.alignment,
+              child: child,
+            ),
+          ),
+        ),
+      );
+}
+
+/// Three dots that take turns lifting, the way a chat shows someone typing.
+class TypingDots extends StatefulWidget {
+  const TypingDots({super.key, required this.color});
+  final Color color;
+
+  @override
+  State<TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<TypingDots> with SingleTickerProviderStateMixin {
+  late final AnimationController c =
+      AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat();
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: c,
+        builder: (context, _) => Row(mainAxisSize: MainAxisSize.min, children: [
+          for (var i = 0; i < 3; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+              child: Transform.translate(
+                // each dot rises during its own third of the loop
+                offset: Offset(0, -5 * _lift((c.value - i * 0.18) % 1.0)),
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+                ),
+              ),
+            ),
+        ]),
+      );
+
+  double _lift(double t) => t < 0.4 ? Curves.easeInOut.transform(t < 0.2 ? t / 0.2 : (0.4 - t) / 0.2) : 0;
+}
+
+/// One thing the ghost says: the ghost appears, types for a moment, then the bubble pops in.
+class GhostLine extends StatefulWidget {
+  const GhostLine({
+    super.key,
+    required this.child,
+    required this.bubbleColor,
+    required this.dotColor,
+    this.delayMs = 250,
+    this.typingMs = 650,
+    this.avatar = 40,
+  });
+  final Widget child;
+  final Color bubbleColor, dotColor;
+  final int delayMs, typingMs;
+  final double avatar;
+
+  @override
+  State<GhostLine> createState() => _GhostLineState();
+}
+
+class _GhostLineState extends State<GhostLine> {
+  int phase = 0; // 0 not yet, 1 typing, 2 said
+  final timers = <Timer>[];
+
+  @override
+  void initState() {
+    super.initState();
+    timers.add(Timer(Duration(milliseconds: widget.delayMs), () {
+      if (mounted) setState(() => phase = 1);
+    }));
+    timers.add(Timer(Duration(milliseconds: widget.delayMs + widget.typingMs), () {
+      if (mounted) setState(() => phase = 2);
+    }));
+  }
+
+  @override
+  void dispose() {
+    for (final t in timers) {
+      t.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (phase == 0) return const SizedBox.shrink();
+    Widget bubble(Widget inner) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(color: widget.bubbleColor, borderRadius: BorderRadius.circular(16)),
+          child: inner,
+        );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12, right: 32),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        PopIn(key: const ValueKey('avatar'), alignment: Alignment.bottomCenter, child: _ghost(widget.avatar)),
+        const SizedBox(width: 8),
+        Flexible(
+          child: phase == 1
+              ? bubble(TypingDots(color: widget.dotColor))
+              : PopIn(key: const ValueKey('said'), alignment: Alignment.topLeft, child: bubble(widget.child)),
+        ),
+      ]),
+    );
+  }
+}
+
 void main() => runApp(const RehabApp());
 
 class Tokens {
@@ -708,29 +865,28 @@ class _HomePageState extends State<HomePage> {
       final n = _questions.length;
       final big = TextStyle(fontSize: 18, height: 1.45, color: t.text, fontWeight: FontWeight.w400);
 
-      Widget ghostSays(Widget child) => Padding(
-            padding: const EdgeInsets.only(bottom: 12, right: 32),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              _ghost(40),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(color: t.bubble, borderRadius: BorderRadius.circular(16)),
-                  child: child,
-                ),
-              ),
-            ]),
+      // The ghost shows up, types for a moment, then the bubble pops in. Keys keep old lines from replaying.
+      Widget ghostSays(String id, Widget child, {int delayMs = 300, int typingMs = 650}) => GhostLine(
+            key: ValueKey('ghost-$id'),
+            delayMs: delayMs,
+            typingMs: typingMs,
+            bubbleColor: t.bubble,
+            dotColor: t.muted,
+            child: child,
           );
 
-      Widget youSaid(String text) => Padding(
-            padding: const EdgeInsets.only(bottom: 12, left: 56),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(color: t.text, borderRadius: BorderRadius.circular(16)),
-                child: Text(text, style: big.copyWith(color: t.bg)),
+      Widget youSaid(String id, String text) => PopIn(
+            key: ValueKey('you-$id'),
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 12, left: 56),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(color: t.text, borderRadius: BorderRadius.circular(16)),
+                  child: Text(text, style: big.copyWith(color: t.bg)),
+                ),
               ),
             ),
           );
@@ -777,28 +933,38 @@ class _HomePageState extends State<HomePage> {
 
       // Everything said so far, oldest first.
       final transcript = <Widget>[
-        ghostSays(Text(
-          tr('Hi. I will help you scroll a little less. Nothing gets locked. A few quick questions first.',
-              '嗨，我會陪你少滑一點，不會鎖住任何東西。先問你幾個問題。'),
-          style: big,
-        )),
-        ghostSays(Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: big)),
-        if (step > 0) youSaid(pickedNames),
+        ghostSays(
+          'hi',
+          Text(
+            tr('Hi. I will help you scroll a little less. Nothing gets locked. A few quick questions first.',
+                '嗨，我會陪你少滑一點，不會鎖住任何東西。先問你幾個問題。'),
+            style: big,
+          ),
+        ),
+        ghostSays('q0', Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: big),
+            delayMs: 1500),
+        if (step > 0) youSaid('a0', pickedNames),
         for (var i = 1; i <= n && i <= step; i++) ...[
-          ghostSays(Text(zh ? _questions[i - 1].zh : _questions[i - 1].en, style: big)),
-          if (step > i) youSaid(_answerText(_questions[i - 1].key)),
+          ghostSays('q$i', Text(zh ? _questions[i - 1].zh : _questions[i - 1].en, style: big), delayMs: 350),
+          if (step > i) youSaid('a$i', _answerText(_questions[i - 1].key)),
         ],
         if (step > n)
           planning
-              ? ghostSays(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(tr('Got it. Working out a plan for you. About ten seconds.', '了解。我來幫你訂計畫，大約十秒。'), style: big),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: 160,
-                    child: LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
-                  ),
-                ]))
-              : ghostSays(Text(planNote, style: big)),
+              ? ghostSays(
+                  'planning',
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(tr('Got it. Working out a plan for you. About ten seconds.', '了解。我來幫你訂計畫，大約十秒。'),
+                        style: big),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: 160,
+                      child: LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
+                    ),
+                  ]),
+                  delayMs: 350,
+                  typingMs: 500,
+                )
+              : ghostSays('plan', Text(planNote, style: big), delayMs: 0, typingMs: 600),
       ];
 
       // What you can tap right now.
@@ -858,12 +1024,26 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(height: 12),
                 // Newest at the bottom, and it stays at the bottom as the conversation grows.
                 Expanded(child: ListView(reverse: true, children: transcript.reversed.toList())),
+                // The answers appear once the ghost has finished asking.
                 if (choices.isNotEmpty)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.42),
-                    child: SingleChildScrollView(child: Column(children: choices)),
+                  PopIn(
+                    key: ValueKey('choices-$step'),
+                    delayMs: step == 0 ? 2300 : 1100,
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.42),
+                      child: SingleChildScrollView(child: Column(children: choices)),
+                    ),
                   ),
-                if (footer != null) ...[const SizedBox(height: 4), footer],
+                if (footer != null) ...[
+                  const SizedBox(height: 4),
+                  PopIn(
+                    key: ValueKey('footer-$step-$planning'),
+                    delayMs: step == 0 ? 2300 : 900,
+                    alignment: Alignment.bottomCenter,
+                    child: footer,
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Row(children: [
                   if (step > 0 && !planning) plain(tr('Back', '上一步'), () => setState(() => step -= 1)),
@@ -1010,7 +1190,29 @@ class _HomePageState extends State<HomePage> {
                     child: ListView(
                       controller: scroll,
                       shrinkWrap: true,
-                      children: [for (final m in chat) bubble(m)],
+                      children: [
+                        // Each line pops in once; the key stops earlier lines from replaying.
+                        for (var i = 0; i < chat.length; i++)
+                          PopIn(
+                            key: ValueKey('chat-$i'),
+                            alignment: chat[i].kind == 'user' ? Alignment.centerRight : Alignment.centerLeft,
+                            child: bubble(chat[i]),
+                          ),
+                        // While the model is thinking, the ghost is typing.
+                        if (sending)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(children: [
+                              _ghost(32),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(color: t.bubble, borderRadius: BorderRadius.circular(16)),
+                                child: TypingDots(color: t.muted),
+                              ),
+                            ]),
+                          ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 8),

@@ -44,8 +44,6 @@ class MainActivity : FlutterActivity() {
         "com.reddit.frontpage" to "Reddit",
         "com.snapchat.android" to "Snapchat",
         "com.pinterest" to "Pinterest",
-        "com.sparkslab.dcardreader" to "Dcard",
-        "com.dcard.freedom" to "Dcard", // id read from a phone
         // video
         "com.google.android.youtube" to "YouTube",
         "tv.danmaku.bili" to "bilibili",
