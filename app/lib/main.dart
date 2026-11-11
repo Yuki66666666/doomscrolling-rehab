@@ -813,7 +813,7 @@ class _HomePageState extends State<HomePage> {
         if (reply.isEmpty) throw Exception('empty reply');
       } catch (e) {
         (reply, grant) = _negotiatorScripted();
-        note = tr('Model call failed, scripted reply shown. $e', '模型沒有回應，以下是預設回覆。$e');
+        note = tr('Slo is having trouble getting online. Check your connection and try again.', '慢慢現在連不上網路。確認網路後再試一次。');
       }
     } else {
       (reply, grant) = _negotiatorScripted();
@@ -846,7 +846,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     if (!_aiConfigured) {
-      setState(() => reportText = tr('No model configured in this build.', '這個版本沒有接上模型。'));
+      setState(() => reportText = tr('Slo cannot read your log right now. Try again later.', '慢慢現在沒辦法讀你的紀錄，晚點再試一次。'));
       return;
     }
     setState(() {
@@ -877,7 +877,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() => reportText = (j?['summary'] ?? text).toString());
     } catch (e) {
-      if (mounted) setState(() => reportText = tr('Could not reach the model. $e', '模型沒有回應。$e'));
+      if (mounted) setState(() => reportText = tr('Slo could not get online. Check your connection and try again.', '慢慢現在連不上網路。確認網路後再試一次。'));
     } finally {
       if (mounted) setState(() => reportBusy = false);
     }
@@ -1142,8 +1142,8 @@ class _HomePageState extends State<HomePage> {
         ghostSays(
           'hi',
           Text(
-            tr('Hi. I will help you scroll a little less. Nothing gets locked. A few quick questions first.',
-                '嗨，我會陪你少滑一點，不會鎖住任何東西。先問你幾個問題。'),
+            tr('Hi, I\'m Slo. I will help you scroll a little less. Nothing gets locked. A few quick questions first.',
+                '嗨，我是慢慢。我會陪你少滑一點，不會鎖住任何東西。先問你幾個問題。'),
             style: big,
           ),
         ),
@@ -1234,7 +1234,7 @@ class _HomePageState extends State<HomePage> {
             style: small,
           ),
           if (_aiConfigured && !planFromModel)
-            Text(tr('The coach did not answer, so this is the standard plan for your answers.', '教練沒有回應，這是依照你的回答套用的標準計畫。'),
+            Text(tr('Slo could not get online, so this is the standard plan for your answers.', '慢慢現在連不上網路，這是依照你的回答套用的標準計畫。'),
                 style: small),
         ]);
       }
@@ -1332,8 +1332,8 @@ class _HomePageState extends State<HomePage> {
           '還有 ${_fmtTime(left)} 的全速，之後每分鐘都會更慢。',
         ),
       'slowing' => tr(
-          'You have been scrolling for ${sessionMin.round()} minutes. The feed is at $speedText and still dropping.',
-          '你已經滑了 ${sessionMin.round()} 分鐘。現在是 $speedText，還會繼續變慢。',
+          'You have been scrolling for ${sessionMin.round()} minutes. The feed is slowing and will keep dropping.',
+          '你已經滑了 ${sessionMin.round()} 分鐘。影片正在變慢，還會繼續變慢。',
         ),
       'floor' => instead.isNotEmpty
           ? tr('This is the slowest it goes. You said you would rather: $instead', '這是最慢的速度了。你說過你比較想：$instead')
@@ -1415,7 +1415,7 @@ class _HomePageState extends State<HomePage> {
                   Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
                 for (final a in apps)
                   option(
-                    a['pkg'] == _chromePkg ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
+                    a['label'] as String,
                     chosen.contains(a['pkg']),
                     running
                         ? null
@@ -1443,7 +1443,7 @@ class _HomePageState extends State<HomePage> {
                 Text(tr('Your plan', '你的計畫'), style: h2),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  plain(tr('Talk to the coach again', '再跟教練聊一次'), () {
+                  plain(tr('Talk to Slo again', '再跟慢慢聊一次'), () {
                     showSettings = false;
                     _restartSetup();
                   }),
@@ -1543,7 +1543,7 @@ class _HomePageState extends State<HomePage> {
               card([
                 Text(tr('Want full speed back?', '想要回全速？'), style: h2),
                 Text(
-                  tr('Tell it why. It decides, and it remembers what you said.', '跟它說為什麼。由它決定，而且它會記得你說的話。'),
+                  tr('Tell Slo why. Slo decides, and remembers what you said.', '跟慢慢說為什麼。由慢慢決定，而且它會記得你說的話。'),
                   style: small,
                 ),
                 const SizedBox(height: 8),
@@ -1614,7 +1614,6 @@ class _HomePageState extends State<HomePage> {
                       '今天已用 ${s['grantsToday'] ?? 0} 次，共 ${s['maxGrants'] ?? 3} 次'),
                   style: small,
                 ),
-                if (!_aiConfigured) Text(tr('No model in this build. Replies are scripted.', '這個版本沒有接上模型，以下是預設回覆。'), style: small),
               ]),
             if (promises.isNotEmpty)
               card([
@@ -1658,7 +1657,7 @@ class _HomePageState extends State<HomePage> {
               Text(
                 planNote.isNotEmpty
                     ? planNote
-                    : tr('The default plan. Talk to the coach and it will fit one to you.', '目前是預設計畫。跟教練聊聊，它會幫你調整。'),
+                    : tr('The standard plan. Talk to Slo in Settings and it will fit one to you.', '目前是標準計畫。到設定跟慢慢聊聊，它會幫你調整。'),
                 style: body.copyWith(height: 1.5),
               ),
               const SizedBox(height: 8),
