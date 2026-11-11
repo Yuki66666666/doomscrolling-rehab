@@ -463,6 +463,54 @@ class _HomePageState extends State<HomePage> {
   final demoStuck = TextEditingController(text: '30');
   String demoMsg = '';
 
+  // Settings: the person's own times, in minutes
+  final planSmooth = TextEditingController();
+  final planStuck = TextEditingController();
+  double planFloor = 40;
+  String planMsg = '';
+
+  void _openSettings(num graceNow, num rampNow) {
+    final grace = (planNums['startGraceMin'] ?? graceNow).round();
+    planSmooth.text = '$grace';
+    planStuck.text = '${grace + (planNums['rampMin'] ?? rampNow).round()}';
+    planFloor = (planNums['floorKbps'] ?? 40) <= 100 ? 40 : 200;
+    setState(() {
+      planMsg = '';
+      showSettings = true;
+    });
+  }
+
+  /// Saves the times the person typed as their plan. The daily tightening stays as it was.
+  Future<void> _saveTimes(bool demoOn) async {
+    final a = int.tryParse(planSmooth.text.trim());
+    final b = int.tryParse(planStuck.text.trim());
+    if (a == null || b == null || a < 1 || b <= a) {
+      setState(() => planMsg = tr('The second number must be larger than the first.', '第二個數字要比第一個大。'));
+      return;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+    planNums = {
+      'startGraceMin': a.toDouble(),
+      'dailyFactor': planNums['dailyFactor'] ?? 0.94,
+      'rampMin': (b - a).toDouble(),
+      'floorKbps': planFloor,
+    };
+    await _channel.invokeMethod('plan', planNums);
+    if (demoOn) await _channel.invokeMethod('demoTimeline', {'clear': true});
+    await _saveProfile();
+    await _poll();
+    if (mounted) setState(() => planMsg = tr('Saved.', '存好了。'));
+  }
+
+  /// "3 min 20 s" / 「3 分 20 秒」, for people who do not read 3:20 as a time.
+  String _say(num minutes) {
+    final total = (minutes * 60).round().clamp(0, 1 << 30);
+    final m = total ~/ 60, sec = total % 60;
+    if (m == 0) return tr('$sec s', '$sec 秒');
+    if (sec == 0) return tr('$m min', '$m 分鐘');
+    return tr('$m min $sec s', '$m 分 $sec 秒');
+  }
+
   /// Demo only: full speed until [demoSmooth] seconds, completely stuck from [demoStuck] seconds.
   Future<void> _applyTimeline() async {
     final a = int.tryParse(demoSmooth.text.trim());
@@ -529,6 +577,8 @@ class _HomePageState extends State<HomePage> {
     for (final c in otherCtl.values) {
       c.dispose();
     }
+    planSmooth.dispose();
+    planStuck.dispose();
     demoSmooth.dispose();
     demoStuck.dispose();
     scroll.dispose();
@@ -937,10 +987,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  String _fmtTime(num minutes) {
-    final total = (minutes * 60).floor();
-    return '${total ~/ 60}:${(total % 60).toString().padLeft(2, '0')}';
-  }
 
   // ---------- view ----------
 
@@ -1401,9 +1447,20 @@ class _HomePageState extends State<HomePage> {
     final sessionSec = ((s['sessionSec'] ?? sessionMin * 60) as num).floor();
     final firstSpan = demoOn
         ? tr('${demoSmoothSec.round()} seconds', '${demoSmoothSec.round()} 秒')
-        : tr('${graceMin.round()} minutes', '${graceMin.round()} 分鐘');
-    final scrolledSpan =
-        demoOn ? tr('$sessionSec seconds', '$sessionSec 秒') : tr('${sessionMin.round()} minutes', '${sessionMin.round()} 分鐘');
+        : tr('${graceMin.round()} min', '${graceMin.round()} 分鐘');
+    final scrolledSpan = demoOn ? tr('$sessionSec s', '$sessionSec 秒') : _say(sessionMin);
+    final stuckAtSpan = demoOn
+        ? tr('${demoStuckSec.round()} s', '${demoStuckSec.round()} 秒')
+        : tr('${(graceMin + rampMin).round()} min', '${(graceMin + rampMin).round()} 分鐘');
+    final blurry = minKbps > 100;
+    final stuckWord = blurry ? tr('Very blurry', '很糊') : tr('Stuck', '卡住');
+    // 0 normal, 1 getting slower, 2 at the slowest; -1 when it is not running
+    final nowIndex = switch (stage) {
+      'full' || 'idle' || 'boost' => 0,
+      'slowing' => 1,
+      'floor' => 2,
+      _ => -1,
+    };
 
     final stageColor = switch (stage) {
       'full' || 'boost' => t.ok,
@@ -1412,35 +1469,88 @@ class _HomePageState extends State<HomePage> {
       _ => t.muted,
     };
     final heroTitle = switch (stage) {
-      'off' => tr('Off', '未開啟'),
-      'idle' => tr('Ready when you are', '準備好了'),
-      'full' => tr('Full speed', '全速'),
-      'slowing' => tr('Getting slower', '正在變慢'),
-      'floor' => tr('As slow as it gets', '已經最慢'),
-      'boost' => tr('Full speed, on a timer', '限時全速'),
+      'off' => tr('Not on yet', '還沒開始'),
+      'idle' => tr('Ready', '準備好了'),
+      'full' => tr('Normal for now', '現在正常'),
+      'slowing' => tr('Getting slower', '開始變慢了'),
+      'floor' => blurry ? tr('Very blurry now', '現在很糊了') : tr('Stuck now', '現在卡住了'),
+      'boost' => tr('Normal again, for a bit', '暫時恢復正常'),
       _ => stage,
     };
-    final left = graceMin - sessionMin;
     final heroLine = switch (stage) {
-      'off' => tr('Turn it on and $appNames will get slower the longer you scroll.', '開啟後，$appNames 會越滑越慢。'),
-      'idle' => tr(
-          'Open $appNames whenever you like. The first $firstSpan are at full speed.',
-          '想滑的時候就打開 $appNames。前 $firstSpan是全速。',
-        ),
-      'full' => tr(
-          'Another ${_fmtTime(left)} at full speed. After that it gets slower every minute.',
-          '還有 ${_fmtTime(left)} 的全速，之後每分鐘都會更慢。',
-        ),
-      'slowing' => tr(
-          'You have been scrolling for $scrolledSpan. The feed is slowing and will keep dropping.',
-          '你已經滑了 $scrolledSpan。影片正在變慢，還會繼續變慢。',
-        ),
+      'off' => tr('Press the button below. Then $appNames get slower the longer you scroll.',
+          '按下面的按鈕，$appNames 就會越滑越慢。'),
+      'idle' => tr('Open $appNames. The first $firstSpan are normal, then it slows down.',
+          '打開 $appNames 滑滑看。前 $firstSpan正常，之後會慢慢變慢。'),
+      'full' => tr('It starts to slow down in ${_say(graceMin - sessionMin)}.',
+          '再 ${_say(graceMin - sessionMin)}就會開始變慢。'),
+      'slowing' => tr('You have scrolled for $scrolledSpan. In ${_say(graceMin + rampMin - sessionMin)} it is ${stuckWord.toLowerCase()}.',
+          '你已經滑了 $scrolledSpan。再 ${_say(graceMin + rampMin - sessionMin)}就會$stuckWord。'),
       'floor' => instead.isNotEmpty
-          ? tr('This is the slowest it goes. You said you would rather: $instead', '這是最慢的速度了。你說過你比較想：$instead')
-          : tr('This is the slowest it goes. Ten minutes away resets it.', '這是最慢的速度了。離開十分鐘就會重設。'),
-      'boost' => tr('${s['boostLeftSec']} seconds left, then it slows down again.', '還剩 ${s['boostLeftSec']} 秒，之後會再慢下來。'),
+          ? tr('Time for a break. You said you would rather: $instead', '休息一下吧。你說過比較想：$instead')
+          : tr('Put the phone down for ten minutes and it is normal again.', '放下手機十分鐘，就會恢復正常。'),
+      'boost' => tr('${s['boostLeftSec']} s left, then it slows down again.', '還有 ${s['boostLeftSec']} 秒，之後會再變慢。'),
       _ => '',
     };
+
+    // Three little phones: normal, slower, stuck. The one you are in now is marked.
+    Widget stageStrip() {
+      Widget phone(int i, double strength, String label, String when) {
+        final now = i == nowIndex;
+        return Expanded(
+          child: AnimatedOpacity(
+            opacity: nowIndex == -1 || now ? 1 : 0.45,
+            duration: const Duration(milliseconds: 300),
+            curve: _ease,
+            child: Column(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: _ease,
+                width: 60,
+                height: 90,
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: t.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: t.second, width: now ? 3 : 1.5),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: t.second.withValues(alpha: strength),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  alignment: Alignment.center,
+                  child: i == 2
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: t.second),
+                        )
+                      : Icon(Icons.play_arrow_rounded, size: 26, color: t.surface),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(label, style: body.copyWith(height: 1.3, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+              Text(when, style: small, textAlign: TextAlign.center),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 24,
+                child: now
+                    ? Text(tr('You are here', '你在這裡'),
+                        style: small.copyWith(color: t.second, fontWeight: FontWeight.w500))
+                    : null,
+              ),
+            ]),
+          ),
+        );
+      }
+
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        phone(0, 1, tr('Normal', '正常'), tr('first $firstSpan', '前 $firstSpan')),
+        phone(1, 0.4, tr('Slower', '變慢'), tr('after that', '之後')),
+        phone(2, 0.08, stuckWord, tr('from $stuckAtSpan', '第 $stuckAtSpan')),
+      ]);
+    }
 
     // ----- demo: pretend time has passed, so every stage can be shown in a short recording -----
     final demoCard = card([
@@ -1577,6 +1687,46 @@ class _HomePageState extends State<HomePage> {
                   plain(tr('Done', '完成'), close, on: true),
                 ]),
                 const SizedBox(height: 16),
+                // The times, in plain words, at the top: the thing people come here to change.
+                Text(tr('When it slows down', '什麼時候變慢'), style: h2),
+                const SizedBox(height: 8),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  for (final (label, c) in [
+                    (tr('Normal for (min)', '前幾分鐘正常'), planSmooth),
+                    (tr('Slowest at (min)', '第幾分鐘最慢'), planStuck),
+                  ]) ...[
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(label, style: body),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: c,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(3)],
+                          style: big.copyWith(fontSize: 22, fontFeatures: const [FontFeature.tabularFigures()]),
+                          decoration: field(''),
+                        ),
+                      ]),
+                    ),
+                    if (!identical(c, planStuck)) const SizedBox(width: 12),
+                  ],
+                ]),
+                const SizedBox(height: 4),
+                Text(tr('In between it slows down little by little. Each day the normal part gets a little shorter.',
+                    '中間會一點一點變慢。每天正常的時間會再少一點。'), style: small),
+                const SizedBox(height: 12),
+                Text(tr('At the slowest, videos are', '最慢的時候，影片會'), style: body),
+                const SizedBox(height: 8),
+                option(tr('Stuck, they do not play', '卡住，播不動'), planFloor == 40,
+                    () => setState(() => planFloor = 40), trailing: tick(planFloor == 40)),
+                option(tr('Very blurry, but they play', '很糊，但還能看'), planFloor == 200,
+                    () => setState(() => planFloor = 200), trailing: tick(planFloor == 200)),
+                primary(tr('Save these times', '儲存時間'), () => _saveTimes(demoOn)),
+                if (planMsg.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(planMsg, style: body.copyWith(color: planMsg.length > 6 ? t.bad : t.ok)),
+                ],
+                const SizedBox(height: 32),
                 Text(tr('Apps to slow', '要放慢的 App'), style: h2),
                 if (running)
                   Text(tr('Turn it off below to change these.', '先在下面關閉，才能改這些。'), style: small),
@@ -1652,7 +1802,7 @@ class _HomePageState extends State<HomePage> {
               ),
               plain(tr('Demo', '展示用'), () => setState(() => showDetails = !showDetails), on: showDetails),
               const SizedBox(width: 8),
-              plain(tr('Settings', '設定'), () => setState(() => showSettings = true)),
+              plain(tr('Settings', '設定'), () => _openSettings(graceMin, rampMin)),
             ]),
             const SizedBox(height: 16),
             if (showDetails) demoCard,
@@ -1681,25 +1831,12 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ]),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 96,
-                width: double.infinity,
-                child: CustomPaint(
-                  painter: CurvePainter(
-                    sessionMin: sessionMin.toDouble(),
-                    graceMin: graceMin.toDouble(),
-                    rampMin: rampMin.toDouble(),
-                    line: t.second,
-                    faint: t.line,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                tr('${_fmtTime(sessionMin)} scrolled this session', '這次已滑 ${_fmtTime(sessionMin)}'),
-                style: small,
-              ),
+              const SizedBox(height: 20),
+              stageStrip(),
+              if (running) ...[
+                const SizedBox(height: 8),
+                Text(tr('Scrolled this time: $scrolledSpan', '這次已經滑了 $scrolledSpan'), style: body),
+              ],
               if (!running) ...[
                 const SizedBox(height: 16),
                 primary(tr('Turn on', '開啟'), starting || chosen.isEmpty ? null : _toggle),
@@ -1709,12 +1846,14 @@ class _HomePageState extends State<HomePage> {
                 Text(error, style: small.copyWith(color: t.bad)),
               ],
             ]),
-            if (running)
+            // Only once it has started to slow down is there anything to ask for.
+            if (running && (nowIndex >= 1 || chat.isNotEmpty || sending))
               card([
-                Text(tr('Want full speed back?', '想要回全速？'), style: h2),
+                Text(tr('Want to watch a bit longer?', '還想再看一下？'), style: h2),
                 Text(
-                  tr('Tell Slo why. Slo decides, and remembers what you said.', '跟慢慢說為什麼。由慢慢決定，而且它會記得你說的話。'),
-                  style: small,
+                  tr('Tell Slo why. Slo decides whether you get a few normal minutes, and remembers what you said.',
+                      '跟慢慢說原因。慢慢會決定要不要讓你再正常看幾分鐘，也會記住你說的話。'),
+                  style: body.copyWith(color: t.muted, height: 1.5),
                 ),
                 const SizedBox(height: 8),
                 if (chat.isNotEmpty)
@@ -1772,7 +1911,7 @@ class _HomePageState extends State<HomePage> {
                       controller: input,
                       onSubmitted: (_) => _send(),
                       style: body.copyWith(height: 1.3),
-                      decoration: field(tr('Why do you want it back?', '為什麼想要回全速？')),
+                      decoration: field(tr('Or type your reason', '或是自己打原因')),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1780,40 +1919,45 @@ class _HomePageState extends State<HomePage> {
                 ]),
                 const SizedBox(height: 8),
                 Text(
-                  tr('${s['grantsToday'] ?? 0} of ${s['maxGrants'] ?? 3} used today',
-                      '今天已用 ${s['grantsToday'] ?? 0} 次，共 ${s['maxGrants'] ?? 3} 次'),
+                  tr('You can ask ${((s['maxGrants'] ?? 3) as num) - ((s['grantsToday'] ?? 0) as num)} more times today',
+                      '今天還可以要 ${((s['maxGrants'] ?? 3) as num) - ((s['grantsToday'] ?? 0) as num)} 次'),
                   style: small,
                 ),
               ]),
             if (promises.isNotEmpty)
               card([
-                Text(tr('Said versus did', '說的 vs 做的'), style: h2),
+                Text(tr('What you promised', '你答應過的事'), style: h2),
                 const SizedBox(height: 4),
-                Text('$keptCount / $decidedCount', style: stat),
-                Text(tr('promises kept, of those already decided', '守住的承諾（已有結果的）'), style: small),
+                Text(
+                  decidedCount == 0
+                      ? tr('Still checking', '還在看你有沒有做到')
+                      : tr('Kept $keptCount of $decidedCount', '做到 $keptCount 次，共 $decidedCount 次'),
+                  style: stat.copyWith(fontSize: 24),
+                ),
                 const SizedBox(height: 8),
                 for (final p in promises.reversed)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 6),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Expanded(
-                        child: Text(tr('"${p['words']}"', '「${p['words']}」'), style: small.copyWith(color: t.text)),
+                        child: Text(tr('"${p['words']}"', '「${p['words']}」'), style: body.copyWith(height: 1.5)),
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        '${p['minutes']} ${tr('min', '分')}  ${switch (p['outcome']) {
-                          'kept' => tr('kept', '守住'),
-                          'broken' => tr('broken', '沒守住'),
-                          _ => tr('checking', '確認中'),
-                        }}',
-                        style: small.copyWith(
+                        switch (p['outcome']) {
+                          'kept' => tr('Kept', '做到了'),
+                          'broken' => tr('Not kept', '沒做到'),
+                          _ => tr('Checking', '還在看'),
+                        },
+                        style: body.copyWith(
+                          height: 1.5,
                           color: switch (p['outcome']) { 'kept' => t.ok, 'broken' => t.bad, _ => t.muted },
                         ),
                       ),
                     ]),
                   ),
                 const SizedBox(height: 8),
-                plain(reportBusy ? tr('Thinking', '思考中') : tr('What does this say about me?', '這代表什麼？'),
+                plain(reportBusy ? tr('Slo is reading', '慢慢正在看') : tr('Ask Slo what this means', '請慢慢幫我看看'),
                     reportBusy ? null : _report,
                     on: true),
                 if (reportText.isNotEmpty) ...[
@@ -1833,11 +1977,13 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               Text(
                 tr(
-                  'Day ${day + 1} of 14. Full speed for the first $firstSpan, a little less each day.',
-                  '14 天中的第 ${day + 1} 天。前 $firstSpan全速，每天再少一點。',
+                  'Today is day ${day + 1} of 14. Each day the normal part gets a little shorter.',
+                  '今天是第 ${day + 1} 天（共 14 天）。每天正常的時間會再少一點。',
                 ),
-                style: small,
+                style: body.copyWith(color: t.muted, height: 1.5),
               ),
+              const SizedBox(height: 8),
+              plain(tr('Change the times', '改時間'), () => _openSettings(graceMin, rampMin)),
             ]),
           ],
         ),
