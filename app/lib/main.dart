@@ -348,20 +348,20 @@ class Tokens {
   final Color bg, surface, text, muted, line, accent, onAccent, accentPressed, second, onSecond, ok, warn, bad, bubble;
 
   static const light = Tokens(
-    bg: Color(0xFFFAF5FF),
-    surface: Color(0xFFFEFCFF),
+    bg: Color(0xFFFCF6FA),
+    surface: Color(0xFFFFFCFD),
     text: Color(0xFF2E1A47),
     muted: Color(0xFF5F4E7A),
     line: Color(0x332E1A47),
     accent: Color(0xFFFF2DD0),
     onAccent: Color(0xFF2E1A47),
     accentPressed: Color(0xFFE01FB6),
-    second: Color(0xFF6D4BC3),
-    onSecond: Color(0xFFFAF5FF),
+    second: Color(0xFF86309E),
+    onSecond: Color(0xFFFCF6FA),
     ok: Color(0xFF1C7A4A),
     warn: Color(0xFF9A5200),
     bad: Color(0xFFB3261E),
-    bubble: Color(0xFFEDE9FE),
+    bubble: Color(0xFFF6E6F7),
   );
 
   static const dark = Tokens(
@@ -373,12 +373,12 @@ class Tokens {
     accent: Color(0xFFFF4FD8),
     onAccent: Color(0xFF1A0B2E),
     accentPressed: Color(0xFFE03BBD),
-    second: Color(0xFF6D4BC3),
+    second: Color(0xFF86309E),
     onSecond: Color(0xFFF3EEFF),
     ok: Color(0xFF6FD3A0),
     warn: Color(0xFFF0B060),
     bad: Color(0xFFFF8A80),
-    bubble: Color(0xFF22224A),
+    bubble: Color(0xFF2B1D3A),
   );
 
   static Tokens of(BuildContext context) =>
@@ -399,16 +399,23 @@ class RehabApp extends StatelessWidget {
         useMaterial3: true,
         brightness: dark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: t.bg,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: t.accent,
+        // Spelled out, so Material derives no colour of its own.
+        colorScheme: ColorScheme(
           brightness: dark ? Brightness.dark : Brightness.light,
-        ).copyWith(
           primary: t.second,
           onPrimary: t.onSecond,
           secondary: t.second,
           onSecondary: t.onSecond,
+          error: t.bad,
+          onError: t.bg,
           surface: t.surface,
           onSurface: t.text,
+          outline: t.line,
+        ),
+        textSelectionTheme: TextSelectionThemeData(
+          cursorColor: t.second,
+          selectionColor: t.bubble,
+          selectionHandleColor: t.second,
         ),
         splashFactory: NoSplash.splashFactory,
       ),
@@ -438,7 +445,8 @@ class _HomePageState extends State<HomePage> {
   bool zh = false;
   bool loaded = false;
   bool starting = false;
-  bool showDetails = false;
+  bool showDetails = false; // the demo controls
+  bool showSettings = false;
 
   // Setup: step 0 picks the apps, steps 1..n are the questions, the last step shows the plan
   bool onboarded = false;
@@ -985,6 +993,76 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
+    final big = TextStyle(fontSize: 18, height: 1.45, color: t.text, fontWeight: FontWeight.w400);
+
+    // The ghost shows up, types for a moment, then the bubble pops in. Keys keep old lines from replaying.
+    Widget ghostSays(String id, Widget child, {int delayMs = 300, int typingMs = 650}) => GhostLine(
+          key: ValueKey('ghost-$id'),
+          delayMs: delayMs,
+          typingMs: typingMs,
+          bubbleColor: t.bubble,
+          dotColor: t.muted,
+          child: child,
+        );
+
+    Widget youSaid(String id, String text) => PopIn(
+          key: ValueKey('you-$id'),
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 56),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: t.second, borderRadius: BorderRadius.circular(16)),
+                child: Text(text, style: big.copyWith(color: t.onSecond)),
+              ),
+            ),
+          ),
+        );
+
+    Widget option(String label, bool on, VoidCallback? onTap, {Widget? leading, Widget? trailing}) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: on ? t.bubble : t.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: on ? t.second : t.line, width: on ? 2 : 0.5),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onTap,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 56),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(children: [
+                  if (leading != null) ...[leading, const SizedBox(width: 12)],
+                  Expanded(child: Text(label, style: big)),
+                  if (trailing != null) trailing,
+                ]),
+              ),
+            ),
+          ),
+        );
+
+    Widget tick(bool on) => AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: _ease,
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: on ? t.second : t.surface,
+            border: Border.all(color: on ? t.second : t.line, width: 1.5),
+          ),
+          child: AnimatedScale(
+            scale: on ? 1 : 0,
+            duration: const Duration(milliseconds: 160),
+            curve: _ease,
+            child: Icon(Icons.check_rounded, size: 18, color: t.onSecond),
+          ),
+        );
+
     final header = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -1002,76 +1080,6 @@ class _HomePageState extends State<HomePage> {
     // ----- first run: the ghost asks in speech bubbles, you answer by tapping -----
     if (!onboarded) {
       final n = _questions.length;
-      final big = TextStyle(fontSize: 18, height: 1.45, color: t.text, fontWeight: FontWeight.w400);
-
-      // The ghost shows up, types for a moment, then the bubble pops in. Keys keep old lines from replaying.
-      Widget ghostSays(String id, Widget child, {int delayMs = 300, int typingMs = 650}) => GhostLine(
-            key: ValueKey('ghost-$id'),
-            delayMs: delayMs,
-            typingMs: typingMs,
-            bubbleColor: t.bubble,
-            dotColor: t.muted,
-            child: child,
-          );
-
-      Widget youSaid(String id, String text) => PopIn(
-            key: ValueKey('you-$id'),
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12, left: 56),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(color: t.second, borderRadius: BorderRadius.circular(16)),
-                  child: Text(text, style: big.copyWith(color: t.onSecond)),
-                ),
-              ),
-            ),
-          );
-
-      Widget option(String label, bool on, VoidCallback onTap, {Widget? leading, Widget? trailing}) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Material(
-              color: on ? t.bubble : t.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: on ? t.second : t.line, width: on ? 2 : 0.5),
-              ),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: onTap,
-                child: Container(
-                  constraints: const BoxConstraints(minHeight: 56),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  child: Row(children: [
-                    if (leading != null) ...[leading, const SizedBox(width: 12)],
-                    Expanded(child: Text(label, style: big)),
-                    if (trailing != null) trailing,
-                  ]),
-                ),
-              ),
-            ),
-          );
-
-      Widget tick(bool on) => AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: _ease,
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: on ? t.second : t.surface,
-              border: Border.all(color: on ? t.second : t.line, width: 1.5),
-            ),
-            child: AnimatedScale(
-              scale: on ? 1 : 0,
-              duration: const Duration(milliseconds: 160),
-              curve: _ease,
-              child: Icon(Icons.check_rounded, size: 18, color: t.onSecond),
-            ),
-          );
-
       // What happens next, as three little phone screens: clear, fading, stuck.
       Widget planPicture() {
         final grace = (planNums['startGraceMin'] ?? 10).round();
@@ -1334,13 +1342,150 @@ class _HomePageState extends State<HomePage> {
       _ => '',
     };
 
+    // ----- demo: pretend time has passed, so every stage can be shown in a short recording -----
+    final demoCard = card([
+      Text(tr('Demo', '展示用'), style: h2),
+      Text(tr('Pretend you have already scrolled this much longer.', '假裝已經又滑了這麼久。'), style: small),
+      const SizedBox(height: 8),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final m in const [1, 5, 10])
+          plain(tr('+$m min', '+$m 分鐘'), () => _demo({'addMinutes': m.toDouble()}), on: true),
+        plain(tr('Reset', '重設'), () {
+          setState(() {
+            chat.clear();
+            history.clear();
+            wordsFrom = 0;
+            reportText = '';
+          });
+          _demo({'reset': true});
+        }),
+      ]),
+      const SizedBox(height: 12),
+      Text(tr('Clock speed', '時鐘速度'), style: small),
+      const SizedBox(height: 4),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final x in const [1, 10, 30, 60])
+          plain(x == 1 ? tr('Real time', '正常速度') : '${x}x', () => _demo({'timeScale': x.toDouble()}),
+              on: timeScale.round() == x),
+      ]),
+      const SizedBox(height: 12),
+      Text(
+        tr(
+          'Speed limit: $speedText. Wait before each new video: ${(delayMs / 1000).toStringAsFixed(1)} s. Slowest ${minKbps.round()} kbps.',
+          '速度上限：$speedText。每支新影片多等 ${(delayMs / 1000).toStringAsFixed(1)} 秒。最慢 ${minKbps.round()} kbps。',
+        ),
+        style: small,
+      ),
+      for (final h in hosts.take(4))
+        Row(children: [
+          Expanded(child: Text(h['host'] as String, style: small, overflow: TextOverflow.ellipsis)),
+          Text(
+            (h['kb'] as num) >= 1024 ? '${((h['kb'] as num) / 1024).toStringAsFixed(1)} MB' : '${h['kb']} KB',
+            style: small,
+          ),
+        ]),
+    ]);
+
+    // ----- settings: everything a person may want to change later, in one place -----
+    if (showSettings) {
+      void close() => setState(() => showSettings = false);
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) close();
+        },
+        child: Scaffold(
+          body: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(tr('Settings', '設定'),
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
+                  ),
+                  plain(tr('Done', '完成'), close, on: true),
+                ]),
+                const SizedBox(height: 16),
+                Text(tr('Apps to slow', '要放慢的 App'), style: h2),
+                if (running)
+                  Text(tr('Turn it off below to change these.', '先在下面關閉，才能改這些。'), style: small),
+                const SizedBox(height: 8),
+                if (apps.isEmpty)
+                  Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
+                for (final a in apps)
+                  option(
+                    a['pkg'] == _chromePkg ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
+                    chosen.contains(a['pkg']),
+                    running
+                        ? null
+                        : () {
+                            setState(() {
+                              final pkg = a['pkg'] as String;
+                              chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
+                            });
+                            _saveProfile();
+                          },
+                    leading: a['icon'] == null
+                        ? null
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.memory(a['icon'] as Uint8List, width: 36, height: 36, gaplessPlayback: true),
+                          ),
+                    trailing: tick(chosen.contains(a['pkg'])),
+                  ),
+                Text(
+                  tr('Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
+                      '使用只在這支手機上運作的本機 VPN。它只看得到這些 App 連到哪些伺服器，看不到傳送的內容。'),
+                  style: small,
+                ),
+                const SizedBox(height: 24),
+                Text(tr('Your plan', '你的計畫'), style: h2),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  plain(tr('Talk to the coach again', '再跟教練聊一次'), () {
+                    showSettings = false;
+                    _restartSetup();
+                  }),
+                  plain(zh ? 'English' : '中文', _switchLanguage),
+                  if (running) plain(tr('Turn off', '關閉'), starting ? null : _toggle),
+                ]),
+                const SizedBox(height: 24),
+                Text(tr('Start over', '重新開始'), style: h2),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: plain(tr('Forget me and start over', '清除設定重新開始'), () async {
+                    await _channel.invokeMethod('prefSet', {'key': 'profile', 'value': null});
+                    planNote = '';
+                    instead = '';
+                    showSettings = false;
+                    _restartSetup();
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
           children: [
-            header,
+            Row(children: [
+              Expanded(
+                child: Text('Doomscroll Rehab',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
+              ),
+              plain(tr('Demo', '展示用'), () => setState(() => showDetails = !showDetails), on: showDetails),
+              const SizedBox(width: 8),
+              plain(tr('Settings', '設定'), () => setState(() => showSettings = true)),
+            ]),
             const SizedBox(height: 16),
+            if (showDetails) demoCard,
             card([
               // The ghost tells you where things stand, in a speech bubble.
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -1519,112 +1664,12 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 8),
               Text(
                 tr(
-                  'Day ${day + 1} of 14. Full speed for the first ${graceMin.toStringAsFixed(1)} minutes, slowest ${minKbps.round()} kbps.',
-                  '14 天中的第 ${day + 1} 天。前 ${graceMin.toStringAsFixed(1)} 分鐘全速，最慢 ${minKbps.round()} kbps。',
+                  'Day ${day + 1} of 14. Full speed for the first ${graceMin.round()} minutes, a little less each day.',
+                  '14 天中的第 ${day + 1} 天。前 ${graceMin.round()} 分鐘全速，每天再少一點。',
                 ),
                 style: small,
               ),
-              const SizedBox(height: 8),
-              plain(tr('Talk to the coach again', '再跟教練聊一次'), _restartSetup),
             ]),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: plain(showDetails ? tr('Hide details', '收起詳細資料') : tr('Details', '詳細資料'),
-                  () => setState(() => showDetails = !showDetails)),
-            ),
-            if (showDetails) ...[
-              const SizedBox(height: 16),
-              card([
-                Text(running ? tr('Slowing these apps', '正在放慢這些 App') : tr('Apps to slow', '要放慢的 App'), style: h2),
-                const SizedBox(height: 8),
-                if (apps.isEmpty)
-                  Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: small),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final a in apps)
-                      plain(
-                        a['pkg'] == _chromePkg ? tr('Chrome (for testing)', 'Chrome（測試用）') : a['label'] as String,
-                        running
-                            ? null
-                            : () {
-                                setState(() {
-                                  final pkg = a['pkg'] as String;
-                                  chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
-                                });
-                                _saveProfile();
-                              },
-                        on: chosen.contains(a['pkg']),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  tr('Uses a local VPN that stays on this phone. It sees which servers the chosen apps talk to, never what they send.',
-                      '使用只在這支手機上運作的本機 VPN。它只看得到這些 App 連到哪些伺服器，看不到傳送的內容。'),
-                  style: small,
-                ),
-                if (running) ...[
-                  const SizedBox(height: 8),
-                  plain(tr('Turn off', '關閉'), starting ? null : _toggle),
-                ],
-              ]),
-              card([
-                Text(tr('Right now', '目前數值'), style: h2),
-                const SizedBox(height: 4),
-                Text(
-                  tr(
-                    'Speed limit: $speedText. Wait before each new video: ${(delayMs / 1000).toStringAsFixed(1)} s.',
-                    '速度上限：$speedText。每支新影片多等 ${(delayMs / 1000).toStringAsFixed(1)} 秒。',
-                  ),
-                  style: small,
-                ),
-                const SizedBox(height: 8),
-                Text(tr('Servers the feed apps are loading', '這些 App 正在連的伺服器'), style: small.copyWith(color: t.text)),
-                if (hosts.isEmpty) Text(tr('Nothing yet.', '還沒有資料。'), style: small),
-                for (final h in hosts)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    child: Row(children: [
-                      Expanded(child: Text(h['host'] as String, style: small)),
-                      Text(
-                        (h['kb'] as num) >= 1024
-                            ? '${((h['kb'] as num) / 1024).toStringAsFixed(1)} MB'
-                            : '${h['kb']} KB',
-                        style: small,
-                      ),
-                    ]),
-                  ),
-              ]),
-              card([
-                Text(tr('Demo controls', '展示控制'), style: h2),
-                Text(tr('Clock speed, so a twenty-minute session fits in a short demo.', '調快時鐘，讓二十分鐘的過程能在短時間內展示完。'),
-                    style: small),
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  for (final x in const [1, 10, 30, 60])
-                    plain(x == 1 ? tr('Real time', '正常速度') : '${x}x', () => _demo({'timeScale': x.toDouble()}),
-                        on: timeScale.round() == x),
-                  plain(tr('Skip ahead 5 min', '快轉 5 分鐘'), () => _demo({'addMinutes': 5.0})),
-                  plain(tr('Reset session', '重設'), () {
-                    setState(() {
-                      chat.clear();
-                      history.clear();
-                      wordsFrom = 0;
-                      reportText = '';
-                    });
-                    _demo({'reset': true});
-                  }),
-                  plain(tr('Forget me and start over', '清除設定重新開始'), () async {
-                    await _channel.invokeMethod('prefSet', {'key': 'profile', 'value': null});
-                    planNote = '';
-                    instead = '';
-                    _restartSetup();
-                  }),
-                ]),
-              ]),
-            ],
           ],
         ),
       ),
