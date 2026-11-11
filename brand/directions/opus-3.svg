@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#10382b"/>
+  <!-- buffering ring: faint full track, only a short arc still filling -->
+  <circle cx="512" cy="512" r="268" fill="none" stroke="#eef3ee" stroke-opacity="0.22" stroke-width="56"/>
+  <path d="M512 244 A268 268 0 0 1 744 378" fill="none" stroke="#eef3ee" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="744" cy="378" r="40" fill="#9fd3b4"/>
+  <!-- paused play mark: two bars, the feed waiting -->
+  <rect x="436" y="420" width="52" height="184" rx="26" fill="#eef3ee"/>
+  <rect x="536" y="420" width="52" height="184" rx="26" fill="#eef3ee"/>
+</svg>

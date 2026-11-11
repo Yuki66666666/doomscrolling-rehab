@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">Doomscroll Rehab: feed settling into a stack</title>
+  <rect width="1024" height="1024" fill="#101214"/>
+  <rect x="292" y="224" width="440" height="244" rx="32" fill="none" stroke="#eceef0" stroke-width="48"/>
+  <path d="M480 294L480 398L562 346Z" fill="#eceef0"/>
+  <path d="M292 570H732M292 692H732M292 770H732" fill="none" stroke="#eceef0" stroke-width="48" stroke-linecap="round"/>
+</svg>

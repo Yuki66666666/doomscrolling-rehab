@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" fill="#10382b"/>
+  <!-- floor line -->
+  <path d="M240 760 H784" stroke="#eef3ee" stroke-opacity="0.35" stroke-width="28" stroke-linecap="round" fill="none"/>
+  <!-- speed curve: full speed, then easing down toward the floor -->
+  <path d="M240 290 H420 C540 290 580 640 784 676" stroke="#eef3ee" stroke-width="64" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- current point -->
+  <circle cx="602" cy="525" r="56" fill="#9fd3b4"/>
+</svg>
