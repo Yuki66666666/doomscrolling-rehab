@@ -355,7 +355,48 @@ function aiConfigured() {
   return !!(process.env.LLM_API_KEY && process.env.LLM_BASE_URL && process.env.LLM_MODEL);
 }
 
-function systemPrompt() {
+// Text the server itself shows to the user. The dashboard sends lang ("en" or "zh") with every POST.
+const MSG = {
+  en: {
+    noModel: 'No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.',
+    noMessages: 'no messages',
+    coachEmpty: 'Tell the coach something first.',
+    nothingToReport: 'Nothing to report yet. Finish a session or ask for a boost first, or load the demo week.',
+    noJson: 'model did not return JSON',
+    noSummary: 'model returned no summary',
+    scriptedUsed: 'You have used all {n} boosts for today. The feed stays slow until tomorrow.',
+    scriptedAsk: 'What do you want from the next few minutes on the feed?',
+    scriptedGrant: 'Okay. Five minutes at full speed, then it slows again.',
+  },
+  zh: {
+    noModel: '還沒設定模型。請在 .env 設定 LLM_BASE_URL、LLM_API_KEY 和 LLM_MODEL。',
+    noMessages: '沒有訊息。',
+    coachEmpty: '先跟教練說點什麼吧。',
+    nothingToReport: '還沒有資料可以寫。先滑完一次，或申請一次全速時段，也可以載入示範週。',
+    noJson: '模型沒有回傳 JSON。',
+    noSummary: '模型沒有回傳報告內容。',
+    scriptedUsed: '今天的 {n} 次全速時段都用完了，動態會慢到明天。',
+    scriptedAsk: '接下來這幾分鐘，你想在動態上做什麼？',
+    scriptedGrant: '好，給你 5 分鐘全速，時間到就會再慢下來。',
+  },
+};
+
+function pickLang(v) {
+  return v === 'zh' ? 'zh' : 'en';
+}
+
+function msg(lang, key, vars) {
+  return MSG[pickLang(lang)][key].replace(/\{(\w+)\}/g, (m, k) => (vars && k in vars ? String(vars[k]) : m));
+}
+
+// One extra prompt line when the dashboard is in Chinese; nothing changes for English.
+function langLine(lang, what) {
+  return pickLang(lang) === 'zh'
+    ? ['The dashboard is set to Chinese. Write ' + what + ' in Traditional Chinese as used in Taiwan. Keep the JSON keys as they are.']
+    : [];
+}
+
+function systemPrompt(lang) {
   const kbps = currentKbps();
   return [
     'You are the negotiator inside Doomscroll Rehab, an app that slows short-video feeds the longer someone scrolls.',
@@ -375,6 +416,7 @@ function systemPrompt() {
     '- If they just say "because I want to", ask what they were hoping to feel, once. If they are still vague, grant nothing and offer one small alternative they could do in two minutes.',
     '- If all boosts for today are used, say so plainly and grant nothing.',
     '- Keep every reply under 45 words. Reply in the language the user writes in.',
+    ...langLine(lang, 'the reply'),
     '',
     'Answer with JSON only, no other text: {"reply": "<what you say>", "grant_minutes": <integer 0 to ' + MAX_GRANT_MIN + '>}',
   ].join('\n');
@@ -414,22 +456,22 @@ function parseDecision(text) {
 }
 
 // Used only when no model is configured or the call fails. The dashboard labels it.
-function scriptedDecision(messages) {
+function scriptedDecision(messages, lang) {
   const turns = messages.filter((m) => m.role === 'user').length;
   if (state.grantsToday >= MAX_GRANTS_PER_DAY) {
-    return { reply: 'You have used all ' + MAX_GRANTS_PER_DAY + ' boosts for today. The feed stays slow until tomorrow.', grant: 0 };
+    return { reply: msg(lang, 'scriptedUsed', { n: MAX_GRANTS_PER_DAY }), grant: 0 };
   }
-  if (turns <= 1) return { reply: 'What do you want from the next few minutes on the feed?', grant: 0 };
-  return { reply: 'Okay. Five minutes at full speed, then it slows again.', grant: 5 };
+  if (turns <= 1) return { reply: msg(lang, 'scriptedAsk'), grant: 0 };
+  return { reply: msg(lang, 'scriptedGrant'), grant: 5 };
 }
 
-async function negotiate(messages) {
+async function negotiate(messages, lang) {
   let decision;
   let source = 'model';
   let error = null;
   if (aiConfigured()) {
     try {
-      decision = parseDecision(await askLLM(messages));
+      decision = parseDecision(await askLLM(messages, systemPrompt(lang)));
       if (!decision.reply) throw new Error('empty reply');
     } catch (e) {
       error = String(e.message || e);
@@ -437,7 +479,7 @@ async function negotiate(messages) {
     }
   }
   if (!decision) {
-    decision = scriptedDecision(messages);
+    decision = scriptedDecision(messages, lang);
     source = 'scripted';
   }
   let grant = Math.max(0, Math.min(MAX_GRANT_MIN, Math.round(decision.grant)));
@@ -472,18 +514,18 @@ async function negotiate(messages) {
 
 // ---------- AI coach: writes the taper plan ----------
 
-function extractJson(text) {
+function extractJson(text, lang) {
   const clean = String(text).replace(/<think>[\s\S]*?<\/think>/g, '');
   const a = clean.indexOf('{');
   const b = clean.lastIndexOf('}');
-  if (a === -1 || b <= a) throw new Error('model did not return JSON');
+  if (a === -1 || b <= a) throw new Error(msg(lang, 'noJson'));
   return JSON.parse(clean.slice(a, b + 1));
 }
 
 const clamp = (v, lo, hi, fallback) => (Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : fallback);
 
-async function coachPlan(about) {
-  if (!aiConfigured()) throw new Error('No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.');
+async function coachPlan(about, lang) {
+  if (!aiConfigured()) throw new Error(msg(lang, 'noModel'));
   const system = [
     'You are the coach inside Doomscroll Rehab. The app does not block short-video feeds. It makes them slower the longer one session runs, and tightens a little every day for 14 days.',
     'You set four numbers for this person:',
@@ -492,6 +534,7 @@ async function coachPlan(about) {
     '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Shorter for people who say they lose track of time.',
     '- floor_kbps (20 to 300): the slowest speed. 40 stalls video entirely. 150 to 300 leaves it blurry but watchable, for people who would remove the app if it stalled.',
     'Then write note: at most 50 words, to the person, in the language they wrote in, saying why these numbers fit what they told you. No lecturing, no statistics.',
+    ...langLine(lang, 'the note'),
     'Answer with JSON only: {"start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n, "note": "..."}',
   ].join('\n');
   const user = 'What the person said about their scrolling:\n' + about +
@@ -499,7 +542,7 @@ async function coachPlan(about) {
     (sessionLog.length
       ? JSON.stringify(sessionLog.slice(-20).map((s) => ({ minutes: s.minutes, boosts: s.boosts, endedAt: s.endedAt })))
       : 'none yet');
-  const j = extractJson(await askLLM([{ role: 'user', content: user }], system));
+  const j = extractJson(await askLLM([{ role: 'user', content: user }], system), lang);
   applyPlan(j);
   planNote = String(j.note || '').slice(0, 500);
   planSource = 'coach';
@@ -574,11 +617,11 @@ function buildReport() {
   };
 }
 
-async function reportSummary() {
-  if (!aiConfigured()) throw new Error('No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.');
+async function reportSummary(lang) {
+  if (!aiConfigured()) throw new Error(msg(lang, 'noModel'));
   const report = buildReport();
   if (!report.sessions && !report.promises.made) {
-    const e = new Error('Nothing to report yet. Finish a session or ask for a boost first, or load the demo week.');
+    const e = new Error(msg(lang, 'nothingToReport'));
     e.status = 400;
     throw e;
   }
@@ -593,6 +636,7 @@ async function reportSummary() {
     '- daily_factor (0.85 to 0.98): the full-speed window is multiplied by this each day. Now ' + DAILY_FACTOR + '.',
     '- ramp_min (5 to 30): minutes to fall from full speed to the floor. Now ' + RAMP_MIN + '.',
     '- floor_kbps (20 to 300): the slowest speed. Now ' + MIN_KBPS + '.',
+    ...langLine(lang, 'the summary'),
     'Answer with JSON only: {"summary": "...", "start_grace_min": n, "daily_factor": n, "ramp_min": n, "floor_kbps": n}',
   ].join('\n');
   const data = {
@@ -608,16 +652,17 @@ async function reportSummary() {
     cameFrom: report.cameFrom.map((c) => ({ host: c.host, count: c.count })),
     promiseList: report.promiseList.slice(0, 20).map((p) => ({ at: p.at, minutes: p.minutes, words: p.words, kept: p.kept })),
   };
-  const j = extractJson(await askLLM([{ role: 'user', content: JSON.stringify(data) }], system));
+  const j = extractJson(await askLLM([{ role: 'user', content: JSON.stringify(data) }], system), lang);
   const summary = String(j.summary || '').trim().slice(0, 900);
-  if (!summary) throw new Error('model returned no summary');
+  if (!summary) throw new Error(msg(lang, 'noSummary'));
   const has = ['start_grace_min', 'daily_factor', 'ramp_min', 'floor_kbps'].some((k) => j[k] !== null && j[k] !== '' && Number.isFinite(Number(j[k])));
   // suggested numbers are clamped but not applied; the dashboard asks first
   return { summary, suggested: has ? clampPlan(j) : null, demo: report.demo };
 }
 
 // A fabricated week so the report is not empty in a short demo. Every record is flagged.
-function makeDemoWeek() {
+function makeDemoWeek(lang) {
+  const zh = pickLang(lang) === 'zh';
   const at = (daysAgo, hour, minute) => {
     const d = new Date();
     d.setDate(d.getDate() - daysAgo);
@@ -653,24 +698,24 @@ function makeDemoWeek() {
     };
   });
   const boosts = [
-    [7, 23, 32, 5, 'Just want to finish this one cooking video, then I am putting the phone down.', false],
-    [6, 23, 55, 5, 'Five minutes, I only need to reply to a friend who sent me a reel.', true],
-    [5, 0, 20, 3, 'Last one, I promise. I will stop at half past midnight.', false],
-    [5, 23, 20, 3, 'I am looking for the stretching routine I saved, that is all.', true],
-    [4, 23, 45, 5, 'Two more videos and then sleep, I have work at nine.', false],
-    [3, 23, 30, 4, 'I just need to wind down for a few minutes before bed.', false],
-    [2, 23, 55, 5, 'One recipe for tomorrow and then I am done.', false],
-  ].map(([daysAgo, hour, minute, minutes, words, kept]) => {
+    [7, 23, 32, 5, 'Just want to finish this one cooking video, then I am putting the phone down.', '把這支料理影片看完就好，看完我就放下手機。', false],
+    [6, 23, 55, 5, 'Five minutes, I only need to reply to a friend who sent me a reel.', '五分鐘就好，朋友傳了一支短影片給我，我回一下。', true],
+    [5, 0, 20, 3, 'Last one, I promise. I will stop at half past midnight.', '最後一支，我保證。十二點半一定停。', false],
+    [5, 23, 20, 3, 'I am looking for the stretching routine I saved, that is all.', '我只是要找之前存的伸展影片，找到就關。', true],
+    [4, 23, 45, 5, 'Two more videos and then sleep, I have work at nine.', '再看兩支就睡，明天九點要上班。', false],
+    [3, 23, 30, 4, 'I just need to wind down for a few minutes before bed.', '睡前放空幾分鐘就好。', false],
+    [2, 23, 55, 5, 'One recipe for tomorrow and then I am done.', '找一個明天要煮的食譜，找到就不滑了。', false],
+  ].map(([daysAgo, hour, minute, minutes, en, zhWords, kept]) => {
     const t = at(daysAgo, hour, minute);
-    return { at: t.toISOString(), minutes, words, expiresAt: t.getTime() + minutes * 60000, kept, demo: true };
+    return { at: t.toISOString(), minutes, words: zh ? zhWords : en, expiresAt: t.getTime() + minutes * 60000, kept, demo: true };
   });
   return { demo: true, asked: 9, sessions, boosts };
 }
 
 // ---------- AI feed finder: which of the hosts the phone is loading are feeds ----------
 
-async function findFeeds() {
-  if (!aiConfigured()) throw new Error('No model configured. Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in .env.');
+async function findFeeds(lang) {
+  if (!aiConfigured()) throw new Error(msg(lang, 'noModel'));
   const now = Date.now();
   const seen = [...hostStats.entries()]
     .filter(([h, s]) => !isTarget(h) && now - s.last < 600000)
@@ -684,7 +729,7 @@ async function findFeeds() {
     'Do not pick messaging, maps, payments, search, email, app stores, system services, analytics or ad hosts.',
     'Answer with JSON only: {"feeds": ["domain suffix", ...]} using the shortest suffix that still belongs to that service, for example "tiktokcdn.com". Use an empty list if none.',
   ].join('\n');
-  const j = extractJson(await askLLM([{ role: 'user', content: JSON.stringify(seen) }], system));
+  const j = extractJson(await askLLM([{ role: 'user', content: JSON.stringify(seen) }], system), lang);
   const added = [];
   for (const raw of Array.isArray(j.feeds) ? j.feeds : []) {
     const suffix = String(raw).trim().toLowerCase().replace(/^\*?\./, '');
@@ -788,20 +833,21 @@ const dash = http.createServer(async (req, res) => {
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
         .slice(-12)
         .map((m) => ({ role: m.role, content: m.content.slice(0, 600) }));
-      if (!messages.length) return sendJson(res, 400, { error: 'no messages' });
-      return sendJson(res, 200, await negotiate(messages));
+      if (!messages.length) return sendJson(res, 400, { error: msg(body.lang, 'noMessages') });
+      return sendJson(res, 200, await negotiate(messages, body.lang));
     }
 
     if (req.method === 'POST' && url.pathname === '/api/plan') {
       const body = await readJson(req);
       const about = String(body.about || '').trim().slice(0, 1200);
-      if (!about) return sendJson(res, 400, { error: 'Tell the coach something first.' });
-      await coachPlan(about);
+      if (!about) return sendJson(res, 400, { error: msg(body.lang, 'coachEmpty') });
+      await coachPlan(about, body.lang);
       return sendJson(res, 200, snapshot());
     }
 
     if (req.method === 'POST' && url.pathname === '/api/find-feeds') {
-      const added = await findFeeds();
+      const body = await readJson(req);
+      const added = await findFeeds(body.lang);
       return sendJson(res, 200, { added, state: snapshot() });
     }
 
@@ -835,7 +881,8 @@ const dash = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/report') return sendJson(res, 200, buildReport());
 
     if (req.method === 'POST' && url.pathname === '/api/report/summary') {
-      return sendJson(res, 200, await reportSummary());
+      const body = await readJson(req);
+      return sendJson(res, 200, await reportSummary(body.lang));
     }
 
     if (req.method === 'POST' && url.pathname === '/api/report/apply') {
@@ -847,7 +894,8 @@ const dash = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && url.pathname === '/api/report/demo-week') {
-      demoWeek = makeDemoWeek();
+      const body = await readJson(req);
+      demoWeek = makeDemoWeek(body.lang);
       return sendJson(res, 200, buildReport());
     }
 

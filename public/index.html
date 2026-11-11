@@ -112,7 +112,13 @@
 <div class="wrap">
   <header>
     <h1>Doomscroll Rehab</h1>
-    <p class="status" id="status" data-stage="idle">Waiting for the phone</p>
+    <div class="row">
+      <p class="status" id="status" data-stage="idle">Waiting for the phone</p>
+      <div class="row" id="langs" role="group" aria-label="Language">
+        <button class="plain" type="button" data-lang="en" lang="en" aria-pressed="false">EN</button>
+        <button class="plain" type="button" data-lang="zh" lang="zh-Hant" aria-pressed="false">中文</button>
+      </div>
+    </div>
   </header>
 
   <div class="grid">
@@ -120,25 +126,25 @@
       <section class="card">
         <div class="stats">
           <div>
-            <p class="muted small">Feed speed</p>
+            <p class="muted small" data-i18n="statSpeed">Feed speed</p>
             <p class="stat-value" id="speed">Full</p>
           </div>
           <div>
-            <p class="muted small">Scrolling this session</p>
+            <p class="muted small" data-i18n="statTimer">Scrolling this session</p>
             <p class="stat-value" id="timer">0:00</p>
           </div>
           <div>
-            <p class="muted small">Wait before each new video</p>
+            <p class="muted small" data-i18n="statDelay">Wait before each new video</p>
             <p class="stat-value" id="delay">0.0 <small>s</small></p>
           </div>
         </div>
-        <svg class="chart" id="chart" viewBox="0 0 600 190" role="img" aria-label="Feed speed against minutes scrolled">
+        <svg class="chart" id="chart" viewBox="0 0 600 190" role="img" aria-label="Feed speed against minutes scrolled" data-i18n-aria="chartAria">
           <line class="axis" x1="40" y1="150" x2="590" y2="150"></line>
           <line class="grace" id="graceLine" x1="0" y1="20" x2="0" y2="150"></line>
           <polyline class="curve" id="curve" points=""></polyline>
           <circle class="dot" id="dot" r="6" cx="0" cy="0"></circle>
-          <text x="40" y="14">Full speed</text>
-          <text x="40" y="168">0 min</text>
+          <text x="40" y="14" data-i18n="chartFull">Full speed</text>
+          <text x="40" y="168" data-i18n="chartZero">0 min</text>
           <text id="graceLabel" x="0" y="168" text-anchor="middle"></text>
           <text id="floorLabel" x="590" y="168" text-anchor="end"></text>
           <text id="floorSpeed" x="590" y="140" text-anchor="end"></text>
@@ -147,57 +153,57 @@
       </section>
 
       <section class="card">
-        <h2>Fourteen-day taper</h2>
-        <p class="small muted">Each day the full-speed window is 7 percent shorter than the day before, a change small enough to go unnoticed. Tap a day to preview it.</p>
+        <h2 data-i18n="taperTitle">Fourteen-day taper</h2>
+        <p class="small muted" data-i18n="taperIntro">Each day the full-speed window is 7 percent shorter than the day before, a change small enough to go unnoticed. Tap a day to preview it.</p>
         <div class="plan" id="plan"></div>
         <p class="small" id="planNote"></p>
         <p class="small" id="coachNote" style="margin-top:8px" hidden></p>
         <form class="say" id="coach" style="margin-top:12px">
-          <input type="text" id="about" placeholder="Tell the coach how you scroll: how long, when, what you tried" autocomplete="off" maxlength="1200" aria-label="About your scrolling">
-          <button class="plain" id="coachBtn" type="submit">Write my plan</button>
+          <input type="text" id="about" placeholder="Tell the coach how you scroll: how long, when, what you tried" data-i18n-placeholder="aboutPlaceholder" autocomplete="off" maxlength="1200" aria-label="About your scrolling" data-i18n-aria="aboutAria">
+          <button class="plain" id="coachBtn" type="submit" data-i18n="coachBtn">Write my plan</button>
         </form>
         <p class="small muted" id="coachStatus" style="margin-top:8px"></p>
       </section>
 
       <section class="card">
-        <h2>Said versus did</h2>
-        <p class="small muted">What you told the negotiator, next to what the proxy saw after the boost ran out.</p>
+        <h2 data-i18n="repTitle">Said versus did</h2>
+        <p class="small muted" data-i18n="repIntro">What you told the negotiator, next to what the proxy saw after the boost ran out.</p>
         <p class="small demo-flag" id="repDemo" style="margin-top:8px" hidden>Demo data, not measured</p>
         <div class="stats" style="margin-top:8px">
           <div>
-            <p class="muted small">Promises kept</p>
+            <p class="muted small" data-i18n="repKeptLabel">Promises kept</p>
             <p class="stat-value" id="repKept">0 <small>of 0</small></p>
           </div>
         </div>
         <p class="small muted" id="repNumbers"></p>
         <ul class="hosts" id="repPromises" style="margin-top:8px"></ul>
-        <p class="small muted" style="margin-top:12px">Minutes by hour of day</p>
+        <p class="small muted" style="margin-top:12px" data-i18n="repHoursLabel">Minutes by hour of day</p>
         <div class="hours" id="repHours"></div>
         <p class="small muted hour-axis"><span>0:00</span><span>12:00</span><span>23:00</span></p>
         <p class="small" id="repHourNote"></p>
-        <p class="small muted" style="margin-top:12px">Came from</p>
+        <p class="small muted" style="margin-top:12px" data-i18n="repFromLabel">Came from</p>
         <ul class="hosts" id="repFrom"></ul>
-        <p class="small muted" id="repFromEmpty">No host seen in the minute before a session yet.</p>
+        <p class="small muted" id="repFromEmpty" data-i18n="repFromEmpty">No host seen in the minute before a session yet.</p>
         <div class="row" style="margin-top:12px">
-          <button class="plain" id="repWrite" type="button">Write my report</button>
-          <button class="plain" id="repLoad" type="button">Load demo week</button>
-          <button class="plain" id="repClear" type="button">Clear demo week</button>
+          <button class="plain" id="repWrite" type="button" data-i18n="repWrite">Write my report</button>
+          <button class="plain" id="repLoad" type="button" data-i18n="repLoad">Load demo week</button>
+          <button class="plain" id="repClear" type="button" data-i18n="repClear">Clear demo week</button>
         </div>
         <p class="small" id="repSummary" style="margin-top:8px" hidden></p>
         <div class="row" id="repApplyRow" style="margin-top:8px" hidden>
-          <button class="plain" id="repApply" type="button">Apply to my plan</button>
+          <button class="plain" id="repApply" type="button" data-i18n="repApply">Apply to my plan</button>
           <span class="small muted" id="repSuggest"></span>
         </div>
         <p class="small muted" id="repStatus" style="margin-top:8px"></p>
       </section>
 
       <section class="card">
-        <h2>What the phone is loading</h2>
-        <p class="small muted">Hostnames only. The proxy never sees inside the connection.</p>
+        <h2 data-i18n="hostsTitle">What the phone is loading</h2>
+        <p class="small muted" data-i18n="hostsIntro">Hostnames only. The proxy never sees inside the connection.</p>
         <ul class="hosts" id="hosts"></ul>
-        <p class="small muted" id="hostsEmpty">Nothing yet. Set the phone's Wi-Fi proxy to <code id="proxyAddr"></code> and open a feed.</p>
+        <p class="small muted" id="hostsEmpty"><span data-i18n="hostsEmptyA">Nothing yet. Set the phone's Wi-Fi proxy to </span><code id="proxyAddr"></code><span data-i18n="hostsEmptyB"> and open a feed.</span></p>
         <div class="row" style="margin-top:12px">
-          <button class="plain" id="findFeeds" type="button">Find feeds with AI</button>
+          <button class="plain" id="findFeeds" type="button" data-i18n="findBtn">Find feeds with AI</button>
           <span class="small muted" id="findStatus"></span>
         </div>
       </section>
@@ -205,28 +211,28 @@
 
     <div class="col">
       <section class="card">
-        <h2>Ask for full speed</h2>
+        <h2 data-i18n="chatTitle">Ask for full speed</h2>
         <p class="small muted" id="aiNote"></p>
         <div class="chat" id="chat" aria-live="polite"></div>
         <form class="say" id="say">
-          <input type="text" id="text" placeholder="Why do you want it back?" autocomplete="off" maxlength="300" aria-label="Message">
-          <button class="primary" id="send" type="submit">Send</button>
+          <input type="text" id="text" placeholder="Why do you want it back?" data-i18n-placeholder="textPlaceholder" autocomplete="off" maxlength="300" aria-label="Message" data-i18n-aria="textAria">
+          <button class="primary" id="send" type="submit" data-i18n="send">Send</button>
         </form>
         <p class="small muted" id="grants" style="margin-top:8px"></p>
       </section>
 
       <section class="card">
-        <h2>Demo controls</h2>
-        <p class="small muted">Clock speed, so a twenty-minute session fits in a short demo.</p>
+        <h2 data-i18n="demoTitle">Demo controls</h2>
+        <p class="small muted" data-i18n="demoIntro">Clock speed, so a twenty-minute session fits in a short demo.</p>
         <div class="row" id="scales" style="margin:8px 0">
-          <button class="plain" data-scale="1">Real time</button>
+          <button class="plain" data-scale="1" data-i18n="realTime">Real time</button>
           <button class="plain" data-scale="10">10x</button>
           <button class="plain" data-scale="30">30x</button>
           <button class="plain" data-scale="60">60x</button>
         </div>
         <div class="row">
-          <button class="plain" id="skip">Skip ahead 5 min</button>
-          <button class="plain" id="reset">Reset session</button>
+          <button class="plain" id="skip" data-i18n="skip">Skip ahead 5 min</button>
+          <button class="plain" id="reset" data-i18n="reset">Reset session</button>
         </div>
       </section>
     </div>
@@ -238,9 +244,275 @@
   var $ = function (id) { return document.getElementById(id); };
   var history = [];
   var last = null;
+  var lastReport = null;
   var X0 = 40, X1 = 590, Y0 = 20, Y1 = 150;
 
+  // ---------- language ----------
+
+  var STR = {
+    en: {
+      langAria: 'Language',
+      statSpeed: 'Feed speed',
+      statTimer: 'Scrolling this session',
+      statDelay: 'Wait before each new video',
+      full: 'Full',
+      sec: 's',
+      minN: '{n} min',
+      chartAria: 'Feed speed against minutes scrolled',
+      chartFull: 'Full speed',
+      chartZero: '0 min',
+      stage_idle: 'Waiting for the phone',
+      stage_full: 'Full speed',
+      stage_slowing: 'Slowing down',
+      stage_floor: 'At the floor',
+      stage_boost: 'Boost active',
+      statusBoost: 'Boost active, {n} s left',
+      explainBoost: 'Full speed was granted. The session clock is paused until the boost ends.',
+      explainLeft: 'Full speed for another {t}. After that the feed gets slower every minute until it reaches {k} kbps.',
+      explainHeld: 'The feed is being held at {k} kbps. Ten minutes away from it resets the session.',
+      taperTitle: 'Fourteen-day taper',
+      taperIntro: 'Each day the full-speed window is 7 percent shorter than the day before, a change small enough to go unnoticed. Tap a day to preview it.',
+      planDayAria: 'Day {d}, {m} minutes at full speed',
+      planNote: 'Day {d}: full speed for the first {m} minutes. Day {last}: {lm} minutes. Ramp {r} min, floor {f} kbps.',
+      coachNote: 'Coach: {note}',
+      coachFromCoach: 'This plan was written by the coach from what you told it and {n} measured sessions.',
+      coachFromReport: 'This plan was changed from the usage report, after you pressed Apply.',
+      coachDefault: 'This is the default plan. Nobody has told the coach anything yet.',
+      coachBusy: 'The coach is reading what you wrote',
+      coachFail: 'Could not reach the coach: {e}',
+      aboutPlaceholder: 'Tell the coach how you scroll: how long, when, what you tried',
+      aboutAria: 'About your scrolling',
+      coachBtn: 'Write my plan',
+      repTitle: 'Said versus did',
+      repIntro: 'What you told the negotiator, next to what the proxy saw after the boost ran out.',
+      repDemo: 'Demo data, not measured',
+      repDemoHidden: 'Demo data, not measured. Your own log (sessions: {s}, promises: {p}) is hidden until you clear the demo week.',
+      repKeptLabel: 'Promises kept',
+      repOf: 'of {n}',
+      repBroken: '{n} broken',
+      repPending: '{n} still checking',
+      repSessions: '{s} sessions, {m} min',
+      repAsked: '{a} boosts asked, {g} granted',
+      repStayed: 'Stayed {m} min on average after slowing began',
+      sep: '. ',
+      stop: '.',
+      quote: '"{w}"',
+      noWords: 'No words recorded',
+      kept: 'kept',
+      broken: 'broken',
+      pending: 'still checking',
+      repNoPromises: 'No boosts granted yet. Ask for full speed and the promise shows up here.',
+      repHoursLabel: 'Minutes by hour of day',
+      repBarTitle: '{h}, {m} min',
+      repHoursNone: 'No minutes recorded yet',
+      repHoursAria: 'Minutes by hour of day. Most at {h}',
+      repHourNone: 'No finished sessions yet.',
+      repHourNote: 'Riskiest hour: sessions that start at {h}, {m} min in total.',
+      repFromLabel: 'Came from',
+      repFromEmpty: 'No host seen in the minute before a session yet.',
+      fromOne: '{n} session',
+      fromMany: '{n} sessions',
+      repWrite: 'Write my report',
+      repLoad: 'Load demo week',
+      repClear: 'Clear demo week',
+      repApply: 'Apply to my plan',
+      repBusy: 'The model is reading your numbers',
+      repFromDemo: 'Written by the model from the demo week, not from measured use.',
+      repFromReal: 'Written by the model from the numbers above.',
+      repSuggest: 'Suggested: {g} min at full speed on day 1, {p} percent shorter each day, ramp {r} min, floor {f} kbps. Nothing changes until you press Apply.',
+      repApplied: 'Applied. The taper card above shows the new plan.',
+      repApplyFail: 'Could not apply: {e}',
+      modelFail: 'Could not reach the model: {e}',
+      hostsTitle: 'What the phone is loading',
+      hostsIntro: 'Hostnames only. The proxy never sees inside the connection.',
+      hostsEmptyA: 'Nothing yet. Set the phone\'s Wi-Fi proxy to ',
+      hostsEmptyB: ' and open a feed.',
+      laptopIp: 'laptop-ip',
+      slowed: 'slowed',
+      slowThis: 'Slow this',
+      findBtn: 'Find feeds with AI',
+      findBusy: 'Reading the host list',
+      findAdded: 'Now slowing: {list}',
+      findNone: 'No new feeds found',
+      chatTitle: 'Ask for full speed',
+      aiModel: 'Negotiator model: {m}',
+      aiNone: 'No model configured. Replies are scripted until LLM_API_KEY is set in .env.',
+      textPlaceholder: 'Why do you want it back?',
+      textAria: 'Message',
+      send: 'Send',
+      grants: '{a} of {b} boosts used today',
+      chatThinking: 'Thinking',
+      chatFail: 'Could not reach the negotiator: {e}',
+      chatScripted: 'Model call failed, scripted reply shown. {e}',
+      chatGranted: 'Full speed for {n} minutes',
+      demoTitle: 'Demo controls',
+      demoIntro: 'Clock speed, so a twenty-minute session fits in a short demo.',
+      realTime: 'Real time',
+      skip: 'Skip ahead 5 min',
+      reset: 'Reset session'
+    },
+    zh: {
+      langAria: '語言',
+      statSpeed: '動態網速',
+      statTimer: '這次已滑',
+      statDelay: '每支新影片多等',
+      full: '全速',
+      sec: '秒',
+      minN: '{n} 分鐘',
+      chartAria: '動態網速隨滑動分鐘數的變化',
+      chartFull: '全速',
+      chartZero: '0 分鐘',
+      stage_idle: '等手機連上',
+      stage_full: '全速',
+      stage_slowing: '正在變慢',
+      stage_floor: '已到最低速',
+      stage_boost: '全速時段中',
+      statusBoost: '全速時段中，還剩 {n} 秒',
+      explainBoost: '已給你全速。全速時段結束前，計時先暫停。',
+      explainLeft: '還有 {t} 的全速。之後每分鐘都會更慢，最低降到 {k} kbps。',
+      explainHeld: '動態目前限速在 {k} kbps。離開動態十分鐘就會重新計算。',
+      taperTitle: '十四天減量計畫',
+      taperIntro: '全速時間每天比前一天短 7%，小到幾乎沒感覺。點任一天可以預覽。',
+      planDayAria: '第 {d} 天，全速 {m} 分鐘',
+      planNote: '第 {d} 天：前 {m} 分鐘全速。第 {last} 天：{lm} 分鐘。{r} 分鐘內降到最低速 {f} kbps。',
+      coachNote: '教練：{note}',
+      coachFromCoach: '這份計畫是教練根據你說的話和 {n} 次實測紀錄訂的。',
+      coachFromReport: '這份計畫是你按下套用後，依使用報告調整的。',
+      coachDefault: '這是預設計畫，還沒有人跟教練說過什麼。',
+      coachBusy: '教練正在讀你寫的內容',
+      coachFail: '連不上教練：{e}',
+      aboutPlaceholder: '跟教練說說你怎麼滑：滑多久、什麼時候、試過什麼方法',
+      aboutAria: '你的滑手機習慣',
+      coachBtn: '幫我訂計畫',
+      repTitle: '說的 vs 做的',
+      repIntro: '你申請全速時說的話，對照時段結束後實際看到的流量。',
+      repDemo: '示範資料，非實測',
+      repDemoHidden: '示範資料，非實測。你自己的紀錄（{s} 次、{p} 個承諾）先藏起來，清除示範週後會回來。',
+      repKeptLabel: '守住的承諾',
+      repOf: '／ {n}',
+      repBroken: '{n} 個沒守住',
+      repPending: '{n} 個確認中',
+      repSessions: '共滑 {s} 次、{m} 分鐘',
+      repAsked: '申請全速 {a} 次、給了 {g} 次',
+      repStayed: '變慢後平均又滑了 {m} 分鐘',
+      sep: '。',
+      stop: '。',
+      quote: '「{w}」',
+      noWords: '沒有記錄到原話',
+      kept: '守住',
+      broken: '沒守住',
+      pending: '確認中',
+      repNoPromises: '還沒有全速時段。申請一次，你的承諾就會出現在這裡。',
+      repHoursLabel: '一天中各時段的分鐘數',
+      repBarTitle: '{h}，{m} 分鐘',
+      repHoursNone: '還沒有紀錄',
+      repHoursAria: '一天中各時段的分鐘數，最多的是 {h}',
+      repHourNone: '還沒有完整滑完的紀錄。',
+      repHourNote: '最危險的時段：{h} 開始滑的那幾次，合計 {m} 分鐘。',
+      repFromLabel: '開滑前在看',
+      repFromEmpty: '還沒記錄到開滑前一分鐘內連過的網站。',
+      fromOne: '{n} 次',
+      fromMany: '{n} 次',
+      repWrite: '幫我寫報告',
+      repLoad: '載入示範週',
+      repClear: '清除示範週',
+      repApply: '套用到我的計畫',
+      repBusy: '模型正在讀你的數字',
+      repFromDemo: '這是模型根據示範週寫的，不是實測。',
+      repFromReal: '這是模型根據上面的數字寫的。',
+      repSuggest: '建議：第 1 天全速 {g} 分鐘，每天縮短 {p}%，{r} 分鐘內降到最低速 {f} kbps。按下套用前什麼都不會改。',
+      repApplied: '已套用。上面的減量計畫已經更新。',
+      repApplyFail: '套用失敗：{e}',
+      modelFail: '連不上模型：{e}',
+      hostsTitle: '手機正在連的網站',
+      hostsIntro: '只看得到網域名稱，看不到連線內容。',
+      hostsEmptyA: '還沒有資料。把手機 Wi-Fi 的代理伺服器設成 ',
+      hostsEmptyB: '，再打開任何一個短影音動態。',
+      laptopIp: '筆電位址',
+      slowed: '已限速',
+      slowThis: '限速這個',
+      findBtn: '用 AI 找出動態網站',
+      findBusy: '正在讀網站清單',
+      findAdded: '開始限速：{list}',
+      findNone: '沒有找到新的動態網站',
+      chatTitle: '申請全速',
+      aiModel: '談判模型：{m}',
+      aiNone: '還沒設定模型。在 .env 設好 LLM_API_KEY 之前，回覆都是預先寫好的。',
+      textPlaceholder: '為什麼想要恢復全速？',
+      textAria: '訊息',
+      send: '送出',
+      grants: '今天已用 {a}／{b} 次全速時段',
+      chatThinking: '想一下',
+      chatFail: '連不上談判：{e}',
+      chatScripted: '模型呼叫失敗，這是預先寫好的回覆。{e}',
+      chatGranted: '全速 {n} 分鐘',
+      demoTitle: '展示控制',
+      demoIntro: '調快時鐘，二十分鐘的過程幾十秒就能展示完。',
+      realTime: '正常速度',
+      skip: '快轉 5 分鐘',
+      reset: '重設'
+    }
+  };
+
+  var lang = /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+  try {
+    var saved = window.localStorage.getItem('dr-lang');
+    if (saved === 'en' || saved === 'zh') lang = saved;
+  } catch (e) {
+    // storage blocked; the browser language stands
+  }
+
+  function t(key, vars) {
+    var s = STR[lang][key];
+    if (s === undefined) s = STR.en[key];
+    if (s === undefined) return key;
+    return s.replace(/\{(\w+)\}/g, function (m, k) {
+      return vars && vars[k] !== undefined && vars[k] !== null ? String(vars[k]) : m;
+    });
+  }
+
+  // Text that is set once and has to follow a later language change.
+  // key null means raw text (model output or a server message), shown as is.
+  var said = [];
+  function say(el, key, vars) {
+    el._say = { key: key, vars: vars };
+    if (said.indexOf(el) === -1) said.push(el);
+    el.textContent = key ? t(key, vars) : String(vars || '');
+  }
+
+  function applyStatic() {
+    document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (el) {
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-placeholder]'), function (el) {
+      el.setAttribute('placeholder', t(el.getAttribute('data-i18n-placeholder')));
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-aria]'), function (el) {
+      el.setAttribute('aria-label', t(el.getAttribute('data-i18n-aria')));
+    });
+    $('langs').setAttribute('aria-label', t('langAria'));
+    Array.prototype.forEach.call(document.querySelectorAll('#langs button'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-lang') === lang ? 'true' : 'false');
+    });
+  }
+
+  function setLang(next) {
+    if (next !== 'en' && next !== 'zh') return;
+    lang = next;
+    try { window.localStorage.setItem('dr-lang', lang); } catch (e) { /* not remembered, still switched */ }
+    applyStatic();
+    said.forEach(function (el) {
+      if (el._say && el._say.key) el.textContent = t(el._say.key, el._say.vars);
+    });
+    drawSuggest();
+    if (last) render(last);
+    if (lastReport) renderReport(lastReport);
+  }
+
   function post(path, body) {
+    body = body || {};
+    body.lang = lang;
     return fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); });
   }
@@ -251,7 +523,7 @@
   }
 
   function fmtSpeed(kbps) {
-    if (kbps === null) return { n: 'Full', u: '' };
+    if (kbps === null) return { n: t('full'), u: '' };
     if (kbps >= 1000) return { n: (kbps / 1000).toFixed(1), u: 'Mbps' };
     return { n: String(kbps), u: 'kbps' };
   }
@@ -265,14 +537,6 @@
     }
   }
 
-  var STAGE = {
-    idle: 'Waiting for the phone',
-    full: 'Full speed',
-    slowing: 'Slowing down',
-    floor: 'At the floor',
-    boost: 'Boost active'
-  };
-
   function drawChart(s) {
     var span = s.graceMin + s.rampMin + 5;
     var x = function (m) { return X0 + (X1 - X0) * Math.min(1, m / span); };
@@ -281,15 +545,15 @@
     $('graceLine').setAttribute('x1', gx);
     $('graceLine').setAttribute('x2', gx);
     $('graceLabel').setAttribute('x', gx);
-    $('graceLabel').textContent = s.graceMin.toFixed(1) + ' min';
-    $('floorLabel').textContent = Math.round(span) + ' min';
+    $('graceLabel').textContent = t('minN', { n: s.graceMin.toFixed(1) });
+    $('floorLabel').textContent = t('minN', { n: Math.round(span) });
     $('floorSpeed').textContent = s.minKbps + ' kbps';
 
     var m = Math.min(s.sessionMin, span);
     var y = Y0;
     if (m > s.graceMin) {
-      var t = Math.min(1, (m - s.graceMin) / s.rampMin);
-      y = Y0 + (Y1 - 12 - Y0) * t;
+      var p = Math.min(1, (m - s.graceMin) / s.rampMin);
+      y = Y0 + (Y1 - 12 - Y0) * p;
     }
     $('dot').setAttribute('cx', x(m));
     $('dot').setAttribute('cy', y);
@@ -310,19 +574,20 @@
     Array.prototype.forEach.call(box.children, function (b, i) {
       b.style.height = Math.max(6, Math.round((s.plan[i] / max) * 100)) + '%';
       b.setAttribute('aria-current', i === s.day ? 'true' : 'false');
-      b.setAttribute('aria-label', 'Day ' + (i + 1) + ', ' + s.plan[i] + ' minutes at full speed');
+      b.setAttribute('aria-label', t('planDayAria', { d: i + 1, m: s.plan[i] }));
     });
-    $('planNote').textContent = 'Day ' + (s.day + 1) + ': full speed for the first ' + s.plan[s.day] +
-      ' minutes. Day ' + s.plan.length + ': ' + s.plan[s.plan.length - 1] + ' minutes. Ramp ' +
-      s.planParams.rampMin + ' min, floor ' + s.planParams.floorKbps + ' kbps.';
+    $('planNote').textContent = t('planNote', {
+      d: s.day + 1, m: s.plan[s.day], last: s.plan.length, lm: s.plan[s.plan.length - 1],
+      r: s.planParams.rampMin, f: s.planParams.floorKbps
+    });
     $('coachNote').hidden = !s.planNote;
-    $('coachNote').textContent = s.planNote ? 'Coach: ' + s.planNote : '';
+    $('coachNote').textContent = s.planNote ? t('coachNote', { note: s.planNote }) : '';
     if (!$('coachStatus').dataset.busy) {
       $('coachStatus').textContent = s.planSource === 'coach'
-        ? 'This plan was written by the coach from what you told it and ' + s.sessionsLogged + ' measured sessions.'
+        ? t('coachFromCoach', { n: s.sessionsLogged })
         : s.planSource === 'report'
-          ? 'This plan was changed from the usage report, after you pressed Apply.'
-          : 'This is the default plan. Nobody has told the coach anything yet.';
+          ? t('coachFromReport')
+          : t('coachDefault');
     }
   }
 
@@ -343,13 +608,13 @@
       if (h.target) {
         var tag = document.createElement('span');
         tag.className = 'tag';
-        tag.textContent = 'slowed';
+        tag.textContent = t('slowed');
         right.appendChild(tag);
       } else {
         var add = document.createElement('button');
         add.className = 'plain';
         add.type = 'button';
-        add.textContent = 'Slow this';
+        add.textContent = t('slowThis');
         add.addEventListener('click', function () {
           var parts = h.host.split('.');
           post('/api/targets', { add: parts.slice(-2).join('.') }).then(render);
@@ -361,7 +626,7 @@
       ul.appendChild(li);
     });
     $('hostsEmpty').hidden = s.hosts.length > 0;
-    $('proxyAddr').textContent = (s.proxy.addresses[0] || 'laptop-ip') + ':' + s.proxy.port;
+    $('proxyAddr').textContent = (s.proxy.addresses[0] || t('laptopIp')) + ':' + s.proxy.port;
   }
 
   function render(s) {
@@ -369,28 +634,26 @@
     last = s;
     var st = $('status');
     st.dataset.stage = s.stage;
-    st.textContent = STAGE[s.stage] + (s.stage === 'boost' ? ', ' + s.boostLeftSec + ' s left' : '');
+    st.textContent = s.stage === 'boost' ? t('statusBoost', { n: s.boostLeftSec }) : t('stage_' + s.stage);
 
     var sp = fmtSpeed(s.kbps);
     setStat($('speed'), sp.n, sp.u);
     $('timer').textContent = fmtTime(s.sessionMin);
-    setStat($('delay'), (s.connectDelayMs / 1000).toFixed(1), 's');
+    setStat($('delay'), (s.connectDelayMs / 1000).toFixed(1), t('sec'));
 
     var left = s.graceMin - s.sessionMin;
     $('explain').textContent = s.stage === 'boost'
-      ? 'Full speed was granted. The session clock is paused until the boost ends.'
+      ? t('explainBoost')
       : left > 0
-        ? 'Full speed for another ' + fmtTime(left) + '. After that the feed gets slower every minute until it reaches ' + s.minKbps + ' kbps.'
-        : 'The feed is being held at ' + (s.kbps || s.minKbps) + ' kbps. Ten minutes away from it resets the session.';
+        ? t('explainLeft', { t: fmtTime(left), k: s.minKbps })
+        : t('explainHeld', { k: s.kbps || s.minKbps });
 
     drawChart(s);
     drawPlan(s);
     drawHosts(s);
 
-    $('aiNote').textContent = s.ai
-      ? 'Negotiator model: ' + s.ai
-      : 'No model configured. Replies are scripted until LLM_API_KEY is set in .env.';
-    $('grants').textContent = s.grantsToday + ' of ' + s.maxGrants + ' boosts used today';
+    $('aiNote').textContent = s.ai ? t('aiModel', { m: s.ai }) : t('aiNone');
+    $('grants').textContent = t('grants', { a: s.grantsToday, b: s.maxGrants });
     Array.prototype.forEach.call(document.querySelectorAll('#scales button'), function (b) {
       b.setAttribute('aria-pressed', Number(b.dataset.scale) === s.timeScale ? 'true' : 'false');
     });
@@ -405,6 +668,12 @@
     return d;
   }
 
+  function addNote(key, vars) {
+    var d = addMsg('note', '');
+    say(d, key, vars);
+    return d;
+  }
+
   $('say').addEventListener('submit', function (e) {
     e.preventDefault();
     var text = $('text').value.trim();
@@ -412,18 +681,18 @@
     $('text').value = '';
     history.push({ role: 'user', content: text });
     addMsg('user', text);
-    var pending = addMsg('note', 'Thinking');
+    var pending = addNote('chatThinking');
     $('send').disabled = true;
     post('/api/chat', { messages: history }).then(function (r) {
       pending.remove();
-      if (r.error) { addMsg('note', 'Could not reach the negotiator: ' + r.error); return; }
+      if (r.error) { addNote('chatFail', { e: r.error }); return; }
       history.push({ role: 'assistant', content: r.reply });
       addMsg('bot', r.reply);
-      if (r.source === 'scripted' && last && last.ai) addMsg('note', 'Model call failed, scripted reply shown. ' + (r.error || ''));
-      if (r.grantMinutes > 0) addMsg('note', 'Full speed for ' + r.grantMinutes + ' minutes');
+      if (r.source === 'scripted' && last && last.ai) addNote('chatScripted', { e: r.error || '' });
+      if (r.grantMinutes > 0) addNote('chatGranted', { n: r.grantMinutes });
     }).catch(function (err) {
       pending.remove();
-      addMsg('note', 'Could not reach the negotiator: ' + err.message);
+      addNote('chatFail', { e: err.message });
     }).then(function () {
       $('send').disabled = false;
       $('text').focus();
@@ -436,28 +705,30 @@
     if (!about) return;
     var status = $('coachStatus');
     status.dataset.busy = '1';
-    status.textContent = 'The coach is reading what you wrote';
+    say(status, 'coachBusy');
     $('coachBtn').disabled = true;
     post('/api/plan', { about: about }).then(function (r) {
       delete status.dataset.busy;
-      if (r.error) { status.dataset.busy = '1'; status.textContent = r.error; return; }
+      if (r.error) { status.dataset.busy = '1'; say(status, null, r.error); return; }
       $('about').value = '';
+      say(status, null, '');
       render(r);
     }).catch(function (err) {
-      status.textContent = 'Could not reach the coach: ' + err.message;
+      say(status, 'coachFail', { e: err.message });
     }).then(function () { $('coachBtn').disabled = false; });
   });
 
   $('findFeeds').addEventListener('click', function () {
     var status = $('findStatus');
-    status.textContent = 'Reading the host list';
+    say(status, 'findBusy');
     $('findFeeds').disabled = true;
     post('/api/find-feeds', {}).then(function (r) {
-      if (r.error) { status.textContent = r.error; return; }
-      status.textContent = r.added.length ? 'Now slowing: ' + r.added.join(', ') : 'No new feeds found';
+      if (r.error) { say(status, null, r.error); return; }
+      if (r.added.length) say(status, 'findAdded', { list: r.added.join(', ') });
+      else say(status, 'findNone');
       render(r.state);
     }).catch(function (err) {
-      status.textContent = 'Could not reach the model: ' + err.message;
+      say(status, 'modelFail', { e: err.message });
     }).then(function () { $('findFeeds').disabled = false; });
   });
 
@@ -479,37 +750,47 @@
 
   function hourLabel(h) { return h + ':00'; }
 
+  function drawSuggest() {
+    $('repApplyRow').hidden = !suggested;
+    $('repSuggest').textContent = suggested ? t('repSuggest', {
+      g: suggested.start_grace_min,
+      p: Math.round((1 - suggested.daily_factor) * 100),
+      r: suggested.ramp_min,
+      f: suggested.floor_kbps
+    }) : '';
+  }
+
   function clearSummary() {
     suggested = null;
     $('repSummary').hidden = true;
     $('repSummary').textContent = '';
-    $('repApplyRow').hidden = true;
-    $('repSuggest').textContent = '';
+    drawSuggest();
   }
 
   function renderReport(r) {
     if (!r || r.error) return;
+    lastReport = r;
     if (reportDemo !== null && reportDemo !== r.demo) {
       // the summary was written about the other set of records
       clearSummary();
-      $('repStatus').textContent = '';
+      say($('repStatus'), null, '');
     }
     reportDemo = r.demo;
     $('repDemo').hidden = !r.demo;
-    $('repDemo').textContent = 'Demo data, not measured' + (r.demo && r.hiddenWhileDemo
-      ? '. Your own log (sessions: ' + r.hiddenWhileDemo.sessions + ', promises: ' + r.hiddenWhileDemo.promises + ') is hidden until you clear the demo week.'
-      : '');
+    $('repDemo').textContent = r.demo && r.hiddenWhileDemo
+      ? t('repDemoHidden', { s: r.hiddenWhileDemo.sessions, p: r.hiddenWhileDemo.promises })
+      : t('repDemo');
     $('repLoad').disabled = r.demo;
     $('repClear').disabled = !r.demo;
 
-    setStat($('repKept'), String(r.promises.kept), 'of ' + r.promises.made);
+    setStat($('repKept'), String(r.promises.kept), t('repOf', { n: r.promises.made }));
     var parts = [];
-    parts.push(r.promises.broken + ' broken');
-    if (r.promises.pending) parts.push(r.promises.pending + ' still checking');
-    parts.push(r.sessions + ' sessions, ' + r.totalMinutes + ' min');
-    parts.push(r.boostsAsked + ' boosts asked, ' + r.boostsGranted + ' granted');
-    if (r.avgSlowedMin !== null) parts.push('Stayed ' + r.avgSlowedMin + ' min on average after slowing began');
-    $('repNumbers').textContent = parts.join('. ') + '.';
+    parts.push(t('repBroken', { n: r.promises.broken }));
+    if (r.promises.pending) parts.push(t('repPending', { n: r.promises.pending }));
+    parts.push(t('repSessions', { s: r.sessions, m: r.totalMinutes }));
+    parts.push(t('repAsked', { a: r.boostsAsked, g: r.boostsGranted }));
+    if (r.avgSlowedMin !== null) parts.push(t('repStayed', { m: r.avgSlowedMin }));
+    $('repNumbers').textContent = parts.join(t('sep')) + t('stop');
 
     var ul = $('repPromises');
     ul.textContent = '';
@@ -517,15 +798,15 @@
       var li = document.createElement('li');
       var words = document.createElement('span');
       words.className = 'name';
-      words.textContent = p.words ? '"' + p.words + '"' : 'No words recorded';
+      words.textContent = p.words ? t('quote', { w: p.words }) : t('noWords');
       var side = document.createElement('span');
       side.className = 'row side';
       var min = document.createElement('span');
       min.className = 'muted';
-      min.textContent = p.minutes + ' min';
+      min.textContent = t('minN', { n: p.minutes });
       var out = document.createElement('span');
       out.className = p.kept === true ? 'kept' : p.kept === false ? 'broken' : 'muted';
-      out.textContent = p.kept === true ? 'kept' : p.kept === false ? 'broken' : 'still checking';
+      out.textContent = p.kept === true ? t('kept') : p.kept === false ? t('broken') : t('pending');
       side.appendChild(min);
       side.appendChild(out);
       li.appendChild(words);
@@ -535,7 +816,7 @@
     if (!r.promiseList.length) {
       var none = document.createElement('li');
       none.className = 'muted';
-      none.textContent = 'No boosts granted yet. Ask for full speed and the promise shows up here.';
+      none.textContent = t('repNoPromises');
       ul.appendChild(none);
     }
 
@@ -548,15 +829,15 @@
     Array.prototype.forEach.call(box.children, function (b, h) {
       b.style.height = max > 0 ? Math.round((r.byHour[h] / max) * 100) + '%' : '0%';
       b.setAttribute('data-top', h === r.riskiestHour ? 'true' : 'false');
-      b.setAttribute('title', hourLabel(h) + ', ' + r.byHour[h] + ' min');
+      b.setAttribute('title', t('repBarTitle', { h: hourLabel(h), m: r.byHour[h] }));
     });
     box.setAttribute('role', 'img');
     box.setAttribute('aria-label', r.riskiestHour === null
-      ? 'No minutes recorded yet'
-      : 'Minutes by hour of day. Most at ' + hourLabel(r.riskiestHour));
+      ? t('repHoursNone')
+      : t('repHoursAria', { h: hourLabel(r.riskiestHour) }));
     $('repHourNote').textContent = r.riskiestHour === null
-      ? 'No finished sessions yet.'
-      : 'Riskiest hour: sessions that start at ' + hourLabel(r.riskiestHour) + ', ' + r.byHour[r.riskiestHour] + ' min in total.';
+      ? t('repHourNone')
+      : t('repHourNote', { h: hourLabel(r.riskiestHour), m: r.byHour[r.riskiestHour] });
 
     var from = $('repFrom');
     from.textContent = '';
@@ -567,7 +848,7 @@
       name.textContent = c.host;
       var n = document.createElement('span');
       n.className = 'muted side';
-      n.textContent = c.count + (c.count === 1 ? ' session' : ' sessions');
+      n.textContent = t(c.count === 1 ? 'fromOne' : 'fromMany', { n: c.count });
       li.appendChild(name);
       li.appendChild(n);
       from.appendChild(li);
@@ -582,22 +863,19 @@
   $('repWrite').addEventListener('click', function () {
     var status = $('repStatus');
     clearSummary();
-    status.textContent = 'The model is reading your numbers';
+    say(status, 'repBusy');
     $('repWrite').disabled = true;
     post('/api/report/summary', {}).then(function (r) {
-      if (r.error) { status.textContent = r.error; return; }
+      if (r.error) { say(status, null, r.error); return; }
       $('repSummary').hidden = false;
       $('repSummary').textContent = r.summary;
-      status.textContent = r.demo ? 'Written by the model from the demo week, not from measured use.' : 'Written by the model from the numbers above.';
+      say(status, r.demo ? 'repFromDemo' : 'repFromReal');
       if (r.suggested) {
         suggested = r.suggested;
-        $('repApplyRow').hidden = false;
-        $('repSuggest').textContent = 'Suggested: ' + r.suggested.start_grace_min + ' min at full speed on day 1, ' +
-          Math.round((1 - r.suggested.daily_factor) * 100) + ' percent shorter each day, ramp ' +
-          r.suggested.ramp_min + ' min, floor ' + r.suggested.floor_kbps + ' kbps. Nothing changes until you press Apply.';
+        drawSuggest();
       }
     }).catch(function (err) {
-      status.textContent = 'Could not reach the model: ' + err.message;
+      say(status, 'modelFail', { e: err.message });
     }).then(function () { $('repWrite').disabled = false; });
   });
 
@@ -605,22 +883,28 @@
     if (!suggested) return;
     $('repApply').disabled = true;
     post('/api/report/apply', suggested).then(function (r) {
-      if (r.error) { $('repStatus').textContent = r.error; return; }
+      if (r.error) { say($('repStatus'), null, r.error); return; }
       render(r);
-      $('repApplyRow').hidden = true;
       suggested = null;
-      $('repStatus').textContent = 'Applied. The taper card above shows the new plan.';
+      drawSuggest();
+      say($('repStatus'), 'repApplied');
     }).catch(function (err) {
-      $('repStatus').textContent = 'Could not apply: ' + err.message;
+      say($('repStatus'), 'repApplyFail', { e: err.message });
     }).then(function () { $('repApply').disabled = false; });
   });
 
   $('repLoad').addEventListener('click', function () { post('/api/report/demo-week', {}).then(renderReport); });
   $('repClear').addEventListener('click', function () { post('/api/report/clear', {}).then(renderReport); });
 
+  $('langs').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b) setLang(b.getAttribute('data-lang'));
+  });
+
   function poll() {
     fetch('/api/state').then(function (r) { return r.json(); }).then(render).catch(function () {});
   }
+  applyStatic();
   poll();
   setInterval(poll, 1000);
   pollReport();
