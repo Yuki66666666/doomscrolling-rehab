@@ -487,6 +487,9 @@ class _HomePageState extends State<HomePage> {
   bool onboarded = false;
   int step = 0;
   final Map<String, String> answers = {};
+  // What the person typed under "Other", per question ('apps' for the first step)
+  final Map<String, TextEditingController> otherCtl = {};
+  String _other(String key) => (otherCtl[key]?.text ?? '').trim();
   bool planning = false;
   bool planFromModel = false;
   String planNote = '';
@@ -523,6 +526,9 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     timer?.cancel();
     input.dispose();
+    for (final c in otherCtl.values) {
+      c.dispose();
+    }
     demoSmooth.dispose();
     demoStuck.dispose();
     scroll.dispose();
@@ -655,10 +661,10 @@ class _HomePageState extends State<HomePage> {
     final q = _questions.firstWhere((x) => x.key == key);
     final picked = _picked(key);
     final useEnglish = english || !zh;
-    return q.options
-        .where((o) => picked.contains(o.key))
-        .map((o) => useEnglish ? o.en : o.zh)
-        .join(useEnglish ? '; ' : '、');
+    return [
+      ...q.options.where((o) => picked.contains(o.key)).map((o) => useEnglish ? o.en : o.zh),
+      if (_other(key).isNotEmpty) _other(key),
+    ].join(useEnglish ? '; ' : '、');
   }
 
   /// The plan that follows from the answers by plain rules. Used as is when no model answers.
@@ -777,6 +783,9 @@ class _HomePageState extends State<HomePage> {
       planning = false;
       step = 0;
       answers.clear();
+      for (final c in otherCtl.values) {
+        c.clear();
+      }
     });
   }
 
@@ -1052,7 +1061,7 @@ class _HomePageState extends State<HomePage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(color: t.second, borderRadius: BorderRadius.circular(16)),
-                child: Text(text, style: big.copyWith(color: t.onSecond)),
+                child: Text(text.isEmpty ? tr('Skipped', '跳過') : text, style: big.copyWith(color: t.onSecond)),
               ),
             ),
           ),
@@ -1081,6 +1090,38 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         );
+
+    // The last choice everywhere: type your own answer.
+    Widget otherRow(String key, String hint) {
+      final c = otherCtl.putIfAbsent(key, TextEditingController.new);
+      final on = c.text.trim().isNotEmpty;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextField(
+          controller: c,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.done,
+          maxLength: 60,
+          style: big,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: big.copyWith(color: t.muted),
+            counterText: '',
+            filled: true,
+            fillColor: on ? t.bubble : t.surface,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: on ? t.second : t.line, width: on ? 2 : 0.5),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: t.second, width: 2),
+            ),
+          ),
+        ),
+      );
+    }
 
     Widget tick(bool on) => AnimatedContainer(
           duration: const Duration(milliseconds: 160),
@@ -1186,7 +1227,8 @@ class _HomePageState extends State<HomePage> {
         ),
         ghostSays('q0', Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: big),
             delayMs: 1500),
-        if (step > 0) youSaid('a0', pickedNames),
+        if (step > 0)
+          youSaid('a0', [pickedNames, _other('apps')].where((x) => x.isNotEmpty).join(tr(', ', '、'))),
         for (var i = 1; i <= n && i <= step; i++) ...[
           ghostSays(
             'q$i',
@@ -1253,7 +1295,9 @@ class _HomePageState extends State<HomePage> {
             trailing: tick(on),
           ));
         }
-        footer = primary(tr('These ones', '就這些'), chosen.isEmpty ? null : () => setState(() => step = 1));
+        choices.add(otherRow('apps', tr('Another app (type its name)', '其他 App（自己填）')));
+        footer = primary(tr('These ones', '就這些'),
+            chosen.isEmpty && _other('apps').isEmpty ? null : () => setState(() => step = 1));
       } else if (step <= n) {
         final q = _questions[step - 1];
         final picked = _picked(q.key);
@@ -1261,7 +1305,10 @@ class _HomePageState extends State<HomePage> {
           final on = picked.contains(o.key);
           choices.add(option(zh ? o.zh : o.en, on, () => _answer(q, o.key), trailing: q.multi ? tick(on) : null));
         }
-        if (q.multi) footer = primary(tr('Next', '下一步'), picked.isEmpty ? null : _nextStep);
+        choices.add(otherRow(q.key, tr('Other (type your own)', '其他（自己填）')));
+        if (q.multi || _other(q.key).isNotEmpty) {
+          footer = primary(tr('Next', '下一步'), picked.isEmpty && _other(q.key).isEmpty ? null : _nextStep);
+        }
       } else if (!planning) {
         footer = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           primary(tr('Start', '開始'), starting ? null : () => _finishSetup()),
@@ -1311,7 +1358,12 @@ class _HomePageState extends State<HomePage> {
                 Row(children: [
                   if (step > 0 && !planning) plain(tr('Back', '上一步'), () => setState(() => step -= 1)),
                   const Spacer(),
-                  if (step <= n) plain(tr('Skip the questions', '跳過問題'), () => _finishSetup(turnOn: false)),
+                  // Skipping passes over this one question; the conversation carries on.
+                  if (step <= n)
+                    plain(tr('Skip this one', '跳過這題'), () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      step == 0 ? setState(() => step = 1) : _nextStep();
+                    }),
                 ]),
               ],
             ),
