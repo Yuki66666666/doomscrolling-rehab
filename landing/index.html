@@ -121,6 +121,20 @@ html[lang="zh-Hant"] h1 { line-height: 1.25; letter-spacing: 0; }
 .ask .left { font-size: 13px; color: var(--plum-muted); margin-top: 6px; }
 
 /* after the feed: the explanation, as a normal page */
+/* the card after the last video */
+.endcard { position: relative; height: 100vh; height: 100dvh; scroll-snap-align: start; background: #000000; color: #FFFFFF; display: grid; place-items: center; align-content: center; gap: 16px; text-align: center; padding: 72px 24px 24px; }
+.endcard img { width: min(30vh, 60vw); }
+.endcard h2 { max-width: 14em; }
+.endcard p { max-width: 24em; opacity: 0.85; font-size: 18px; line-height: 1.6; }
+.endcard .cta { margin-top: 8px; }
+.endcard .plain { font-size: 16px; }
+/* a second of sleep when you choose to stop */
+.sleep { position: fixed; inset: 0; z-index: 20; background: #000000; color: #FFFFFF; display: grid; place-items: center; align-content: center; gap: 12px; text-align: center; opacity: 0; pointer-events: none; transition: opacity 320ms var(--ease); }
+.sleep.on { opacity: 1; pointer-events: auto; }
+.sleep img { width: min(34vh, 64vw); transform: scale(1); transition: transform 1200ms var(--ease); }
+.sleep.on img { transform: scale(0.92); }
+.sleep p { font-size: 22px; font-weight: 500; }
+.real { font-weight: 500; color: var(--ink) !important; }
 .about { scroll-snap-align: start; background: var(--bg); min-height: 100vh; padding-top: 60px; }
 .about section { padding: 64px 0 0; }
 .verdict { padding: 56px 0 0; text-align: center; }
@@ -150,7 +164,7 @@ footer { padding: 32px 0 48px; }
 @media (prefers-reduced-motion: reduce) {
   .bounce, .load svg, .pop, .btn.up, .swipe svg { animation: none; }
   .rip { display: none; }
-  .clip, .pupils, .btn, .load, .hud { transition: none; }
+  .clip, .pupils, .btn, .load, .hud, .sleep, .sleep img { transition: none; }
 }
 </style>
 </head>
@@ -166,9 +180,17 @@ footer { padding: 32px 0 48px; }
 
 <main class="feed" id="feed">
   <!-- reels are built by the script below -->
+  <section class="endcard" id="endcard">
+    <img src="ghost-512.png" alt="">
+    <h2 data-zh="真的沒有下一支了。">That was the last one. Really.</h2>
+    <p data-zh="沒有東西可以載入了。現在正好是放下手機的時候。">There is nothing left to load. This is a good moment to put the phone down.</p>
+    <a class="cta btn" href="#get" data-zh="我想在手機上用">I want this on my phone</a>
+    <a class="plain" href="#about" id="what" data-zh="剛剛到底發生了什麼事？">What just happened?</a>
+  </section>
   <div class="about" id="about">
     <div class="col verdict">
       <h2 id="verdict">You made it to the end.</h2>
+      <p class="real" id="real"></p>
       <p data-zh="這就是 Doomscroll Rehab 在做的事：不擋你、不鎖你，只是讓短影音越滑越慢、越滑越糊，直到放下手機比等下一支還輕鬆。">That is what Doomscroll Rehab does. It never blocks you or locks you out. It just makes short videos slower and blurrier the longer you scroll, until putting the phone down is easier than waiting for the next one.</p>
       <a class="cta btn" href="#get" data-zh="我想在手機上用">I want this on my phone</a>
     </div>
@@ -226,6 +248,8 @@ footer { padding: 32px 0 48px; }
 </div>
   </div>
 </main>
+
+<div class="sleep" id="sleep" aria-hidden="true"><img src="ghost-512.png" alt=""><p id="sleepT"></p></div>
 
 <div class="hud" id="hud">
   <div class="panel">
@@ -296,6 +320,8 @@ footer { padding: 32px 0 48px; }
       clear: 'The AI says: specific, and it ends. Full speed is back. Go find that recipe.',
       last: 'Full speed is back. That was the third time today, so that is it until tomorrow.',
       none: 'No more speed-ups today. Tomorrow.',
+      sleep: 'Phone down. Nice.',
+      real: function (m) { return m ? 'In the real app, on day one, it gets this slow about ' + m + ' minutes in.' : 'In the real app, the first ten minutes of day one look just like that: completely normal.'; },
       verdict: function (n) { return n >= 8 ? 'You scrolled all ' + n + ' videos. Nobody stopped you.' : 'You put it down after ' + n + (n === 1 ? ' video.' : ' videos.') + ' Nobody had to stop you.'; }
     },
     zh: {
@@ -308,6 +334,8 @@ footer { padding: 32px 0 48px; }
       clear: 'AI 說：夠具體，也有終點。還你全速，去找食譜吧。',
       last: '還你全速。這是今天第三次，明天之前沒有了。',
       none: '今天不能再要回速度了，明天吧。',
+      sleep: '手機放下了。很好。',
+      real: function (m) { return m ? '在真正的 App 裡，第一天大約滑到第 ' + m + ' 分鐘，就會慢成這樣。' : '在真正的 App 裡，第一天的前十分鐘就像這樣：完全正常。'; },
       verdict: function (n) { return n >= 8 ? '你把 ' + n + ' 支全滑完了，沒有人擋你。' : '你滑了 ' + n + ' 支就放下了，沒有人需要擋你。'; }
     }
   };
@@ -333,7 +361,7 @@ footer { padding: 32px 0 48px; }
       (r === 0 ? '<div class="hello"><h1></h1><p></p></div><div class="swipe"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 26L22 14L34 26"/></svg><span></span></div>' : '<div class="cap"><b></b><span></span></div>') +
       '<div class="load' + (r === 0 ? ' off' : '') + '"><svg viewBox="-130 -130 260 260" aria-hidden="true">' + SPIN + '</svg><p></p></div>';
     el.querySelector('.clip').setAttribute('inert', '');   // videos are for watching: they never take focus or clicks
-    feed.insertBefore(el, about);
+    feed.insertBefore(el, $('endcard'));
     reels.push(el);
   }
 
@@ -372,6 +400,9 @@ footer { padding: 32px 0 48px; }
     bubble.textContent = note ? S[note] : S.say[v];
     $('left').textContent = boosts;
     $('verdict').textContent = S.verdict(seen + 1);
+    // day-one defaults: 10 minutes at full speed, then 15 minutes down to the floor; the toy's levels 3 to 7 cover that slope
+    $('real').textContent = S.real(maxV < 3 ? 0 : 10 + (maxV - 2) * 3);
+    $('sleepT').textContent = S.sleep;
   }
   function pop(el) { if (reduce) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
 
@@ -391,7 +422,7 @@ footer { padding: 32px 0 48px; }
   // keep three players at most: the one before, the one on screen, and the next one already loading
   function warm(i) { for (var j = 0; j < reels.length; j++) player(j, j >= i - 1 && j <= i + 1); }
 
-  var leaving = false;
+  var leaving = false, maxV = 0;
   function arrive(i) {
     if (i === cur || leaving) return;
     cur = i; note = ''; ask.classList.remove('on');
@@ -399,7 +430,7 @@ footer { padding: 32px 0 48px; }
     styleReel(i);
     warm(i);
     if (i > seen) {                       // a video you have not seen yet has to load, and loading keeps getting slower
-      seen = i; lastWait = wait(lvl(i));
+      seen = i; lastWait = wait(lvl(i)); maxV = Math.max(maxV, lvl(i));
       setTimeout(function () { load.classList.add('off'); }, lastWait);
       render(); pop($('mN')); pop($('mW'));
     } else { load.classList.add('off'); render(); }
@@ -413,18 +444,27 @@ footer { padding: 32px 0 48px; }
   feed.addEventListener('scroll', checkReel, { passive: true });
 
   function checkAbout() {
-    var now = about.getBoundingClientRect().top < window.innerHeight * 0.5;
+    var now = $('endcard').getBoundingClientRect().top < window.innerHeight * 0.5;   // past the last video: the bar steps aside
+    topbar.classList.toggle('light', about.getBoundingClientRect().top < 30);
     if (now === inAbout) return;
     inAbout = now;
     if (inAbout) leaving = false;
-    hud.classList.toggle('off', inAbout); topbar.classList.toggle('light', inAbout);
+    hud.classList.toggle('off', inAbout);
     if (inAbout) render();
   }
   feed.addEventListener('scroll', checkAbout, { passive: true });
 
   // ---- controls ------------------------------------------------------------
   function go(el) { el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); }
-  $('down').addEventListener('click', function () { leaving = true; go(about); });
+  $('down').addEventListener('click', function () {
+    leaving = true;
+    if (reduce) { about.scrollIntoView(); return; }
+    var sl = $('sleep');
+    sl.classList.add('on');                                  // lights out for a moment, then the answer
+    setTimeout(function () { about.scrollIntoView(); checkAbout(); }, 700);
+    setTimeout(function () { sl.classList.remove('on'); }, 1400);
+  });
+  $('what').addEventListener('click', function (e) { e.preventDefault(); go(about); });
   $('home').addEventListener('click', function (e) { e.preventDefault(); go(reels[0]); });
   var links = document.querySelectorAll('a[href="#get"]');
   for (var g = 0; g < links.length; g++) links[g].addEventListener('click', function (e) { e.preventDefault(); go($('get')); });
