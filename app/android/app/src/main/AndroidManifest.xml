@@ -56,6 +56,8 @@
         <package android:name="com.kuaishou.nebula"/>
         <package android:name="com.ss.android.article.video"/>
         <package android:name="com.phoenix.read"/>
+        <package android:name="com.phoenix.read.oversea.gp"/>
+        <package android:name="com.dcard.freedom"/>
         <package android:name="com.newleaf.app.android.victor"/>
         <package android:name="com.storymatrix.drama"/>
         <package android:name="com.instagram.android"/>

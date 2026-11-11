@@ -55,6 +55,12 @@ const _questions = [
   ]),
 ];
 
+/// The ghost who does the talking.
+Widget _ghost(double size) => ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.25),
+      child: Image.asset('assets/ghost.png', width: size, height: size),
+    );
+
 void main() => runApp(const RehabApp());
 
 class Tokens {
@@ -655,26 +661,33 @@ class _HomePageState extends State<HomePage> {
           ),
         );
 
-    Widget bubble(ChatLine m) => Align(
-          alignment: m.kind == 'user'
-              ? Alignment.centerRight
-              : m.kind == 'note'
-                  ? Alignment.center
-                  : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: m.kind == 'note' ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            constraints: const BoxConstraints(maxWidth: 300),
-            decoration: m.kind == 'note'
-                ? null
-                : BoxDecoration(
-                    color: m.kind == 'bot' ? t.bubble : null,
-                    border: m.kind == 'user' ? Border.all(color: t.line, width: 0.5) : null,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-            child: Text(m.text, style: m.kind == 'note' ? small : body.copyWith(height: 1.5)),
-          ),
+    Widget bubble(ChatLine m) {
+      if (m.kind == 'note') {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Center(child: Text(m.text, style: small)),
         );
+      }
+      final isGhost = m.kind == 'bot';
+      final box = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isGhost ? t.bubble : t.text,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(m.text, style: body.copyWith(height: 1.5, color: isGhost ? t.text : t.bg)),
+      );
+      return Padding(
+        padding: EdgeInsets.only(top: 4, bottom: 4, left: isGhost ? 0 : 48, right: isGhost ? 24 : 0),
+        child: isGhost
+            ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _ghost(32),
+                const SizedBox(width: 8),
+                Flexible(child: box),
+              ])
+            : Align(alignment: Alignment.centerRight, child: box),
+      );
+    }
 
     final header = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -690,14 +703,40 @@ class _HomePageState extends State<HomePage> {
       return Scaffold(body: SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: header)));
     }
 
-    // ----- first run: one question per screen, answered with a tap -----
+    // ----- first run: the ghost asks in speech bubbles, you answer by tapping -----
     if (!onboarded) {
-      final total = _questions.length + 1;
-      final big = TextStyle(fontSize: 18, height: 1.4, color: t.text, fontWeight: FontWeight.w400);
-      final title = TextStyle(fontSize: 22, height: 1.35, color: t.text, fontWeight: FontWeight.w500);
+      final n = _questions.length;
+      final big = TextStyle(fontSize: 18, height: 1.45, color: t.text, fontWeight: FontWeight.w400);
 
-      Widget choice({required Widget child, required bool on, required VoidCallback onTap}) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+      Widget ghostSays(Widget child) => Padding(
+            padding: const EdgeInsets.only(bottom: 12, right: 32),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _ghost(40),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(color: t.bubble, borderRadius: BorderRadius.circular(16)),
+                  child: child,
+                ),
+              ),
+            ]),
+          );
+
+      Widget youSaid(String text) => Padding(
+            padding: const EdgeInsets.only(bottom: 12, left: 56),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(color: t.text, borderRadius: BorderRadius.circular(16)),
+                child: Text(text, style: big.copyWith(color: t.bg)),
+              ),
+            ),
+          );
+
+      Widget option(String label, bool on, VoidCallback onTap, {Widget? leading, Widget? trailing}) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
             child: Material(
               color: t.surface,
               shape: RoundedRectangleBorder(
@@ -708,10 +747,13 @@ class _HomePageState extends State<HomePage> {
                 borderRadius: BorderRadius.circular(12),
                 onTap: onTap,
                 child: Container(
-                  constraints: const BoxConstraints(minHeight: 64),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  alignment: Alignment.centerLeft,
-                  child: child,
+                  constraints: const BoxConstraints(minHeight: 56),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Row(children: [
+                    if (leading != null) ...[leading, const SizedBox(width: 12)],
+                    Expanded(child: Text(label, style: big)),
+                    if (trailing != null) trailing,
+                  ]),
                 ),
               ),
             ),
@@ -727,92 +769,81 @@ class _HomePageState extends State<HomePage> {
             ),
           );
 
-      final List<Widget> content;
-      Widget? footer;
+      final pickedNames = apps
+          .where((a) => chosen.contains(a['pkg']))
+          .map((a) => a['label'] as String)
+          .toSet()
+          .join(tr(', ', '、'));
 
+      // Everything said so far, oldest first.
+      final transcript = <Widget>[
+        ghostSays(Text(
+          tr('Hi. I will help you scroll a little less. Nothing gets locked. A few quick questions first.',
+              '嗨，我會陪你少滑一點，不會鎖住任何東西。先問你幾個問題。'),
+          style: big,
+        )),
+        ghostSays(Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: big)),
+        if (step > 0) youSaid(pickedNames),
+        for (var i = 1; i <= n && i <= step; i++) ...[
+          ghostSays(Text(zh ? _questions[i - 1].zh : _questions[i - 1].en, style: big)),
+          if (step > i) youSaid(_answerText(_questions[i - 1].key)),
+        ],
+        if (step > n)
+          planning
+              ? ghostSays(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(tr('Got it. Working out a plan for you. About ten seconds.', '了解。我來幫你訂計畫，大約十秒。'), style: big),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: 160,
+                    child: LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
+                  ),
+                ]))
+              : ghostSays(Text(planNote, style: big)),
+      ];
+
+      // What you can tap right now.
+      final choices = <Widget>[];
+      Widget? footer;
       if (step == 0) {
         final pickable = apps.where((a) => a['pkg'] != _chromePkg).toList();
-        content = [
-          Text(tr('Which apps do you get stuck in?', '你會在哪些 App 滑到停不下來？'), style: title),
-          const SizedBox(height: 4),
-          Text(tr('Tap all that apply.', '可以選好幾個。'), style: small),
-          const SizedBox(height: 16),
-          if (pickable.isEmpty)
-            Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: big),
-          for (final a in pickable)
-            choice(
-              on: chosen.contains(a['pkg']),
-              onTap: () => setState(() {
-                final pkg = a['pkg'] as String;
-                chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
-              }),
-              child: Row(children: [
-                if (a['icon'] != null)
-                  ClipRRect(
+        if (pickable.isEmpty) {
+          choices.add(Text(tr('No supported feed app is installed on this phone.', '這支手機沒有安裝支援的短影音 App。'), style: big));
+        }
+        for (final a in pickable) {
+          final on = chosen.contains(a['pkg']);
+          choices.add(option(
+            a['label'] as String,
+            on,
+            () => setState(() {
+              final pkg = a['pkg'] as String;
+              chosen.contains(pkg) ? chosen.remove(pkg) : chosen.add(pkg);
+            }),
+            leading: a['icon'] == null
+                ? null
+                : ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(a['icon'] as Uint8List, width: 40, height: 40, gaplessPlayback: true),
+                    child: Image.memory(a['icon'] as Uint8List, width: 36, height: 36, gaplessPlayback: true),
                   ),
-                const SizedBox(width: 16),
-                Expanded(child: Text(a['label'] as String, style: big)),
-                tick(chosen.contains(a['pkg'])),
-              ]),
-            ),
-        ];
-        footer = primary(tr('Next', '下一步'), chosen.isEmpty ? null : () => setState(() => step = 1));
-      } else if (step <= _questions.length) {
+            trailing: tick(on),
+          ));
+        }
+        footer = primary(tr('These ones', '就這些'), chosen.isEmpty ? null : () => setState(() => step = 1));
+      } else if (step <= n) {
         final q = _questions[step - 1];
-        content = [
-          Text(zh ? q.zh : q.en, style: title),
-          const SizedBox(height: 16),
-          for (final o in q.options)
-            choice(
-              on: answers[q.key] == o.key,
-              onTap: () => _answer(q.key, o.key),
-              child: Text(zh ? o.zh : o.en, style: big),
-            ),
-        ];
-      } else if (planning) {
-        content = [
-          Text(tr('Setting it up for you', '正在幫你設定'), style: title),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(minHeight: 4, color: t.text, backgroundColor: t.line),
-          const SizedBox(height: 16),
-          Text(
-            tr('Working out a plan from your answers. This takes about ten seconds.', '正在根據你的回答訂計畫，大約需要十秒。'),
-            style: big,
-          ),
-        ];
-      } else {
-        content = [
-          Text(tr('It is set up', '設定好了'), style: title),
-          const SizedBox(height: 16),
-          Text(planNote, style: big),
-          const SizedBox(height: 16),
-          Row(children: [
-            for (final a in apps.where((a) => chosen.contains(a['pkg']) && a['icon'] != null))
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.memory(a['icon'] as Uint8List, width: 36, height: 36, gaplessPlayback: true),
-                ),
-              ),
-          ]),
-          const SizedBox(height: 16),
-          Text(
-            _aiConfigured && !planFromModel
-                ? tr('The coach did not answer, so this is the standard plan for your answers.', '教練沒有回應，這是依照你的回答套用的標準計畫。')
-                : tr('You can change any of this later.', '之後都可以再調整。'),
-            style: small,
-          ),
-        ];
-        footer = Column(mainAxisSize: MainAxisSize.min, children: [
+        for (final o in q.options) {
+          choices.add(option(zh ? o.zh : o.en, answers[q.key] == o.key, () => _answer(q.key, o.key)));
+        }
+      } else if (!planning) {
+        footer = Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           primary(tr('Start', '開始'), starting ? null : () => _finishSetup()),
           const SizedBox(height: 8),
           Text(
             tr('Your phone will ask to allow a VPN. Tap OK. It stays on this phone.', '手機會問你要不要允許 VPN，按「確定」就好。它只在這支手機上運作。'),
             style: small,
           ),
+          if (_aiConfigured && !planFromModel)
+            Text(tr('The coach did not answer, so this is the standard plan for your answers.', '教練沒有回應，這是依照你的回答套用的標準計畫。'),
+                style: small),
         ]);
       }
 
@@ -824,25 +855,21 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 header,
+                const SizedBox(height: 12),
+                // Newest at the bottom, and it stays at the bottom as the conversation grows.
+                Expanded(child: ListView(reverse: true, children: transcript.reversed.toList())),
+                if (choices.isNotEmpty)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.42),
+                    child: SingleChildScrollView(child: Column(children: choices)),
+                  ),
+                if (footer != null) ...[const SizedBox(height: 4), footer],
                 const SizedBox(height: 8),
                 Row(children: [
-                  if (step > 0 && !planning)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: plain(tr('Back', '上一步'), () => setState(() => step -= 1)),
-                    ),
-                  Text('${(step + 1).clamp(1, total)} / $total', style: small),
+                  if (step > 0 && !planning) plain(tr('Back', '上一步'), () => setState(() => step -= 1)),
+                  const Spacer(),
+                  if (step <= n) plain(tr('Skip the questions', '跳過問題'), () => _finishSetup(turnOn: false)),
                 ]),
-                const SizedBox(height: 16),
-                Expanded(child: ListView(children: content)),
-                if (footer != null) ...[const SizedBox(height: 8), footer],
-                if (step <= _questions.length) ...[
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: plain(tr('Skip the questions', '跳過問題'), () => _finishSetup(turnOn: false)),
-                  ),
-                ],
               ],
             ),
           ),
@@ -917,14 +944,30 @@ class _HomePageState extends State<HomePage> {
             header,
             const SizedBox(height: 16),
             card([
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 300),
-                curve: _ease,
-                style: stat.copyWith(color: stage == 'off' || stage == 'idle' ? t.text : stageColor),
-                child: Text(heroTitle),
-              ),
-              const SizedBox(height: 4),
-              Text(heroLine, style: body),
+              // The ghost tells you where things stand, in a speech bubble.
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                _ghost(56),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(color: t.bubble, borderRadius: BorderRadius.circular(16)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 300),
+                        curve: _ease,
+                        style: stat.copyWith(
+                          fontSize: 24,
+                          color: stage == 'off' || stage == 'idle' ? t.text : stageColor,
+                        ),
+                        child: Text(heroTitle),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(heroLine, style: body.copyWith(height: 1.5)),
+                    ]),
+                  ),
+                ),
+              ]),
               const SizedBox(height: 16),
               SizedBox(
                 height: 96,

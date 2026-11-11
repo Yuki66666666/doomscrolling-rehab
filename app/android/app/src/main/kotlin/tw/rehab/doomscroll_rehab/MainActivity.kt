@@ -29,6 +29,7 @@ class MainActivity : FlutterActivity() {
         "com.ss.android.article.video" to "西瓜視頻",
         // short drama
         "com.phoenix.read" to "紅果短劇",
+        "com.phoenix.read.oversea.gp" to "紅果短劇", // the Google Play build, id read from a phone
         "com.newleaf.app.android.victor" to "ReelShort",
         "com.storymatrix.drama" to "DramaBox",
         // social feeds
@@ -44,6 +45,7 @@ class MainActivity : FlutterActivity() {
         "com.snapchat.android" to "Snapchat",
         "com.pinterest" to "Pinterest",
         "com.sparkslab.dcardreader" to "Dcard",
+        "com.dcard.freedom" to "Dcard", // id read from a phone
         // video
         "com.google.android.youtube" to "YouTube",
         "tv.danmaku.bili" to "bilibili",
@@ -136,6 +138,19 @@ class MainActivity : FlutterActivity() {
     //   adb shell am start -n tw.rehab.doomscroll_rehab/.MainActivity --ef addMinutes 30
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        handleDemoIntent(intent)
+    }
+
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        intent?.let { handleDemoIntent(it) }
+    }
+
+    private fun handleDemoIntent(intent: Intent) {
+        // --ez forget true drops the saved profile, so the next cold start shows the setup conversation again.
+        if (intent.getBooleanExtra("forget", false)) {
+            getSharedPreferences("rehab", MODE_PRIVATE).edit().remove("profile").commit()
+        }
         if (intent.getBooleanExtra("reset", false)) Engine.reset()
         if (intent.hasExtra("timeScale")) {
             Engine.timeScale = intent.getFloatExtra("timeScale", 1f).toDouble().coerceIn(1.0, 120.0)
@@ -143,6 +158,16 @@ class MainActivity : FlutterActivity() {
         if (intent.hasExtra("addMinutes")) {
             Engine.sessionMs = maxOf(0.0, Engine.sessionMs + intent.getFloatExtra("addMinutes", 0f) * 60000.0)
             Engine.lastActive = System.currentTimeMillis()
+        }
+        // Test hook: --es start "pkg1,pkg2" turns the VPN on for exactly those apps, if consent was already given.
+        intent.getStringExtra("start")?.let { list ->
+            pendingApps = ArrayList(list.split(',').map { it.trim() }.filter { it.isNotEmpty() })
+            if (RehabVpnService.running) {
+                startService(Intent(this, RehabVpnService::class.java).setAction(RehabVpnService.ACTION_STOP))
+            }
+            if (VpnService.prepare(this) == null) {
+                window.decorView.postDelayed({ startVpn() }, 800)
+            }
         }
         if (intent.hasExtra("grant")) {
             Engine.grant(intent.getIntExtra("grant", 0), intent.getStringExtra("words") ?: "")

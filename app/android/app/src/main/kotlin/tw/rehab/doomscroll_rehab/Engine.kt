@@ -34,6 +34,7 @@ object Engine {
     @Volatile var grantsToday = 0
 
     @Volatile var totalBytes = 0L
+    @Volatile var lastHost = ""
 
     /** A boost the negotiator granted, with what the user said to get it. */
     class Promise(val at: Long, val minutes: Int, val words: String, val expiresAt: Long) {
@@ -88,6 +89,7 @@ object Engine {
         val s = hosts.getOrPut(host) { HostStat(0, now) }
         s.bytes += n
         s.last = now
+        lastHost = host
         totalBytes += n
         lastActive = now
         if (hosts.size > 300) {
@@ -177,7 +179,7 @@ object Engine {
                     android.util.Log.i(
                         "Rehab",
                         "stage=${stage(true)} session=${"%.1f".format(sessionMs / 60000.0)}min " +
-                            "limit=${if (k.isInfinite()) "full" else "%.0f".format(k)}kbps measured=${"%.0f".format(measured)}kbps",
+                            "limit=${if (k.isInfinite()) "full" else "%.0f".format(k)}kbps measured=${"%.0f".format(measured)}kbps hosts=${hosts.size} last=$lastHost",
                     )
                     lastLog = now
                     lastLogBytes = totalBytes
