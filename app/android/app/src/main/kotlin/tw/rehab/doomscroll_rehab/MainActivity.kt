@@ -14,15 +14,41 @@ class MainActivity : FlutterActivity() {
     private var pendingApps: ArrayList<String> = arrayListOf()
 
     // Feed apps the VPN can be applied to. Each also needs a <queries> entry in the manifest.
+    // Only the ones installed are shown, under the name the phone itself uses for them.
+    // Package ids were written from memory and not all checked against a store listing;
+    // a wrong id simply never appears.
     private val knownApps = listOf(
-        "com.instagram.android" to "Instagram",
-        "com.instagram.barcelona" to "Threads",
+        // short video
         "com.ss.android.ugc.trill" to "TikTok",
         "com.zhiliaoapp.musically" to "TikTok",
-        "com.phoenix.read" to "Hongguo",
-        "com.ss.android.ugc.aweme" to "Douyin",
-        "com.google.android.youtube" to "YouTube",
+        "com.zhiliaoapp.musically.go" to "TikTok Lite",
+        "com.ss.android.ugc.aweme" to "抖音",
+        "com.ss.android.ugc.aweme.lite" to "抖音極速版",
+        "com.smile.gifmaker" to "快手",
+        "com.kuaishou.nebula" to "快手極速版",
+        "com.ss.android.article.video" to "西瓜視頻",
+        // short drama
+        "com.phoenix.read" to "紅果短劇",
+        "com.newleaf.app.android.victor" to "ReelShort",
+        "com.storymatrix.drama" to "DramaBox",
+        // social feeds
+        "com.instagram.android" to "Instagram",
+        "com.instagram.lite" to "Instagram Lite",
+        "com.instagram.barcelona" to "Threads",
         "com.facebook.katana" to "Facebook",
+        "com.facebook.lite" to "Facebook Lite",
+        "com.twitter.android" to "X",
+        "com.xingin.xhs" to "小紅書",
+        "com.sina.weibo" to "微博",
+        "com.reddit.frontpage" to "Reddit",
+        "com.snapchat.android" to "Snapchat",
+        "com.pinterest" to "Pinterest",
+        "com.sparkslab.dcardreader" to "Dcard",
+        // video
+        "com.google.android.youtube" to "YouTube",
+        "tv.danmaku.bili" to "bilibili",
+        "com.bilibili.app.in" to "bilibili",
+        "tv.twitch.android.app" to "Twitch",
         "com.android.chrome" to "Chrome (for testing)",
     )
 
@@ -34,7 +60,7 @@ class MainActivity : FlutterActivity() {
                     val installed = isInstalled(pkg)
                     mapOf(
                         "pkg" to pkg,
-                        "label" to label,
+                        "label" to if (installed && pkg != "com.android.chrome") systemLabel(pkg) ?: label else label,
                         "installed" to installed,
                         "icon" to if (installed) iconPng(pkg) else null,
                     )
@@ -121,6 +147,13 @@ class MainActivity : FlutterActivity() {
         if (intent.hasExtra("grant")) {
             Engine.grant(intent.getIntExtra("grant", 0), intent.getStringExtra("words") ?: "")
         }
+    }
+
+    /** The name shown under the app's icon on this phone, in the phone's language. */
+    private fun systemLabel(pkg: String): String? = try {
+        packageManager.getApplicationLabel(packageManager.getApplicationInfo(pkg, 0)).toString()
+    } catch (e: Exception) {
+        null
     }
 
     /** The app's own launcher icon as PNG bytes, so people can pick by picture. */
