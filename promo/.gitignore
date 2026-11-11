@@ -1,0 +1,3 @@
+# HyperFrames working files (snapshots, check reports, caches)
+.hyperframes/
+node_modules/

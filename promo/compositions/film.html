@@ -1,0 +1,407 @@
+<template>
+  <style>
+    @font-face { font-family: "JhengHei"; font-weight: 400; src: local("Microsoft JhengHei"), local("微軟正黑體"); }
+    @font-face { font-family: "JhengHei"; font-weight: 700; src: local("Microsoft JhengHei Bold"), local("微軟正黑體 Bold"); }
+
+    #root {
+      position: absolute; inset: 0; overflow: hidden;
+      /* palette "Ghost", sampled from brand/icon.svg, same tokens as landing/ */
+      --ground: #02030C; --ink: #F6F2F7; --muted: #B9AFC4; --surface: #17141F;
+      --plum: #2E1A47; --plum-2: #3D2660; --paper: #FAF5FF; --cta: #FF2DD0; --seg: #6B5B8C;
+      background: var(--ground); color: var(--ink);
+      font-family: "Inter", "JhengHei", sans-serif; font-weight: 400;
+    }
+    #root * { box-sizing: border-box; margin: 0; padding: 0; }
+    .layer { position: absolute; inset: 0; }
+
+    /* ---- captions: one block at the top of the safe band ---- */
+    .cap { position: absolute; left: 90px; right: 90px; top: 300px; height: 240px; display: flex; flex-direction: column; justify-content: center; text-align: center; font-weight: 700; font-size: 84px; line-height: 1.25; opacity: 0; }
+    .cap span { display: block; white-space: nowrap; }
+    #c1 { opacity: 1; }
+    /* hook: a big clock above a one-line caption */
+    #c1, #c1x { top: 395px; height: 130px; }
+    #c1 { flex-direction: row; justify-content: center; align-items: center; }
+    #clock { position: absolute; left: 0; right: 0; top: 175px; height: 210px; text-align: center; font-family: "Inter", sans-serif; font-weight: 700; font-size: 210px; line-height: 210px; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    /* ---- phone ---- */
+    #phone-pos { position: absolute; left: 310px; top: 560px; width: 460px; height: 880px; }
+    #phone-body { position: absolute; inset: 0; background: var(--surface); border: 2px solid rgba(246, 242, 247, 0.2); border-radius: 56px; }
+    #screen { position: absolute; left: 14px; top: 14px; width: 432px; height: 852px; border-radius: 42px; overflow: hidden; background: #000; }
+    #feed-col { position: absolute; left: 0; top: 0; width: 432px; }
+    .tile { position: relative; width: 432px; height: 852px; overflow: hidden; }
+    .tile-art { position: absolute; inset: 0; }
+    .tile-art svg { position: absolute; left: 66px; top: 190px; width: 300px; height: 300px; }
+    #root .body { fill: #fff; } #root .dark { fill: var(--plum); }
+    .tile-cap { position: absolute; left: 28px; right: 28px; bottom: 56px; color: #fff; }
+    .tile-cap b { display: block; font-weight: 700; font-size: 32px; line-height: 1.3; }
+    .tile-cap i { display: block; font-style: normal; font-size: 28px; opacity: 0.85; }
+    .load { position: absolute; inset: 0; background: var(--plum); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+    .load svg { width: 150px; height: 150px; }
+    .load p { font-size: 30px; color: #C9BDE0; font-variant-numeric: tabular-nums; }
+    .seg { stroke: var(--seg); stroke-width: 30; stroke-linecap: round; } .seg.on { stroke: var(--cta); }
+    #chip { position: absolute; left: 24px; top: 28px; height: 56px; padding: 0 20px; border-radius: 28px; background: var(--surface); color: var(--paper); font-size: 28px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    #chip-win { height: 40px; overflow: hidden; }
+    #chip-nums b { display: block; height: 40px; line-height: 40px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* ---- Slo, the ghost ---- */
+    #slo-art { position: absolute; left: 0; top: 0; width: 380px; height: 297px; }
+
+    /* ---- speech bubbles ---- */
+    .bubble { position: absolute; max-width: 620px; background: var(--paper); color: var(--plum); border-radius: 32px 32px 32px 8px; padding: 26px 36px; font-size: 56px; line-height: 1.4; font-weight: 700; opacity: 0; }
+    .bubble span { display: block; white-space: nowrap; }
+    .bubble .who { font-size: 28px; font-weight: 400; color: #5F4E7A; }
+    #b4 { background: transparent; color: var(--ink); padding: 0; border-radius: 0; }
+    .bubble.me { background: var(--plum-2); color: var(--paper); border-radius: 32px 32px 8px 32px; }
+
+    /* ---- end card ---- */
+    .end { position: absolute; left: 90px; right: 90px; text-align: center; opacity: 0; white-space: nowrap; }
+    #end-name { top: 990px; font-size: 56px; font-weight: 700; letter-spacing: -0.02em; }
+    #end-cta-pos { top: 1100px; }
+    #end-cta { display: inline-block; background: var(--cta); color: var(--plum); font-weight: 700; font-size: 46px; line-height: 1; padding: 30px 56px; border-radius: 24px; }
+    #end-url { top: 1250px; font-size: 34px; color: var(--ink); }
+    #end-sub { top: 1316px; font-size: 30px; color: var(--muted); }
+  </style>
+
+  <div id="root" data-composition-id="film" data-width="1080" data-height="1920">
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <!-- the eight loading bars from the app icon -->
+        <symbol id="spin" viewBox="-130 -130 260 260">
+          <line stroke="#FF2DD0" stroke-width="30" stroke-linecap="round" x1="0" y1="-52" x2="0" y2="-104" />
+          <line stroke="#FF2DD0" stroke-width="30" stroke-linecap="round" x1="-36.8" y1="-36.8" x2="-73.5" y2="-73.5" />
+          <line stroke="#FF2DD0" stroke-width="30" stroke-linecap="round" x1="-52" y1="0" x2="-104" y2="0" />
+          <line stroke="#FF2DD0" stroke-width="30" stroke-linecap="round" x1="-36.8" y1="36.8" x2="-73.5" y2="73.5" />
+          <line stroke="#6B5B8C" stroke-width="30" stroke-linecap="round" x1="0" y1="52" x2="0" y2="104" />
+          <line stroke="#6B5B8C" stroke-width="30" stroke-linecap="round" x1="36.8" y1="36.8" x2="73.5" y2="73.5" />
+          <line stroke="#6B5B8C" stroke-width="30" stroke-linecap="round" x1="52" y1="0" x2="104" y2="0" />
+          <line stroke="#6B5B8C" stroke-width="30" stroke-linecap="round" x1="36.8" y1="-36.8" x2="73.5" y2="-73.5" />
+        </symbol>
+        <!-- the little ghost that stars in every clip of the feed (same drawing as landing/) -->
+        <symbol id="actor" viewBox="0 0 400 400">
+          <path fill="#FFFFFF" d="M80 360V230C80 130 132 70 200 70C268 70 320 130 320 230V360L280 330L240 360L200 330L160 360L120 330Z" />
+          <circle fill="#2E1A47" cx="160" cy="200" r="18" /><circle fill="#2E1A47" cx="240" cy="200" r="18" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- layer: Slo. Starts behind the phone, jumps in front at 8.7 s -->
+    <div id="slo" class="clip layer" data-start="0" data-duration="23.4" data-track-index="1" style="z-index: 2" data-layout-allow-overflow>
+      <div id="slo-bob" style="position:absolute;inset:0"><div id="slo-hop" style="position:absolute;inset:0"><div id="slo-art">
+        <img id="slo-img" src="assets/slo-noeyes.png" alt="" style="position:absolute;left:0;top:0;width:380px;height:297px" />
+        <!-- the eyes, redrawn on top of the image so they can blink and look around. Units are the image's own 777x607 pixels -->
+        <svg id="slo-eyes" viewBox="0 0 777 607" style="position:absolute;left:0;top:0;width:380px;height:297px">
+          <path id="eye-l" fill="#03040D" d="M326 221H419A46.5 46 0 0 1 326 221Z" />
+          <path id="eye-r" fill="#03040D" d="M510 221H599A44.5 43 0 0 1 510 221Z" />
+          <rect id="lid-l" fill="#03040D" x="307" y="207" width="127" height="16" rx="8" />
+          <rect id="lid-r" fill="#03040D" x="495" y="205" width="120" height="17" rx="8.5" />
+        </svg>
+      </div></div></div>
+    </div>
+
+    <!-- layer: phone frame + feed tiles -->
+    <div id="phone" class="clip layer" data-start="0" data-duration="23.4" data-track-index="2" style="z-index: 3" data-layout-allow-overflow>
+      <div id="phone-pos">
+        <div id="phone-body">
+          <div id="screen">
+            <div id="feed-col">
+              <!-- three extra clips that only the hook flicks through -->
+              <div class="tile" id="pre0" style="background:#5B34C4">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><rect x="110" y="300" width="180" height="70" rx="20" fill="#FFD23F" /></svg></div>
+                <div class="tile-cap"><b data-t="p0"></b><i>@midnight.boo</i></div>
+              </div>
+              <div class="tile" id="pre1" style="background:#7C3AED">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><rect x="300" y="60" width="40" height="300" rx="8" fill="#2E1A47" /></svg></div>
+                <div class="tile-cap"><b data-t="p1"></b><i>@wall.fails</i></div>
+              </div>
+              <div class="tile" id="pre2" style="background:#4C2A9E">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><rect x="130" y="290" width="140" height="90" rx="10" fill="#2E1A47" /></svg></div>
+                <div class="tile-cap"><b data-t="p2"></b><i>@boo.unboxing</i></div>
+              </div>
+              <div class="tile" id="tile0" style="background:#8B5CF6">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><circle cx="330" cy="300" r="46" fill="#2E1A47" /><rect x="300" y="218" width="16" height="60" rx="8" fill="#2E1A47" transform="rotate(30 308 248)" /><circle cx="330" cy="300" r="22" fill="#FFD23F" /></svg></div>
+                <div class="tile-cap"><b data-t="t0"></b><i>@boo.kitchen</i></div>
+              </div>
+              <div class="tile" id="tile1" style="background:#6D43D8">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><path d="M136 90L166 30L196 90ZM206 90L236 30L266 90Z" fill="#2E1A47" /></svg></div>
+                <div class="tile-cap"><b data-t="t1"></b><i>@nine.lives</i></div>
+              </div>
+              <div class="tile" id="tile2" style="background:#4C2A9E">
+                <div class="tile-art"><svg viewBox="0 0 400 400"><use href="#actor" /><rect x="120" y="170" width="160" height="56" rx="28" fill="#2E1A47" /></svg></div>
+                <div class="tile-cap"><b data-t="t2"></b><i>@ghost.fits</i></div>
+              </div>
+              <div class="tile" id="tile3" style="background:#7C3AED">
+                <div class="tile-art" style="filter: blur(3px)"><svg viewBox="0 0 400 400"><use href="#actor" /><path d="M200 0L214 36L252 38L222 62L232 100L200 78L168 100L178 62L148 38L186 36Z" fill="#FFD23F" /></svg>
+                  <div class="tile-cap"><b data-t="t3"></b><i>@afterlife.vlog</i></div></div>
+                <div class="load" id="load3"><svg class="spin-g" viewBox="-130 -130 260 260"><use href="#spin" x="-130" y="-130" width="260" height="260" /></svg><p data-t="l3"></p></div>
+              </div>
+              <div class="tile" id="tile4" style="background:#5B34C4">
+                <div class="tile-art" style="filter: blur(9px)"><svg viewBox="0 0 400 400"><use href="#actor" /><ellipse cx="200" cy="268" rx="26" ry="34" fill="#2E1A47" /></svg>
+                  <div class="tile-cap"><b data-t="t4"></b><i>@boo.tube</i></div></div>
+                <div class="load" id="load4"><svg class="spin-g" viewBox="-130 -130 260 260"><use href="#spin" x="-130" y="-130" width="260" height="260" /></svg><p data-t="l4"></p></div>
+              </div>
+              <div class="tile" id="tile5" style="background:#2E1A47">
+                <div class="load" id="load5"><svg class="spin-g" viewBox="-130 -130 260 260"><use href="#spin" x="-130" y="-130" width="260" height="260" /></svg><p data-t="l5"></p></div>
+              </div>
+            </div>
+            <div id="chip"><span data-t="chipA"></span><div id="chip-win"><div id="chip-nums" data-layout-ignore><b>1</b><b>4</b><b>8</b><b>13</b><b>19</b><b>25</b></div></div><span data-t="chipB"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- layer: speech bubbles -->
+    <div id="bubbles" class="clip layer" data-start="0" data-duration="23.4" data-track-index="3" style="z-index: 5" data-layout-allow-overlap data-layout-allow-occlusion>
+      <div class="bubble" id="b1"><span class="who" data-t="who"></span><span data-t="b1a"></span><span data-t="b1b"></span></div>
+      <div class="bubble" id="b2"><span class="who" data-t="who"></span><span data-t="b2"></span></div>
+      <div class="bubble me" id="bme"><span data-t="mea"></span><span data-t="meb"></span></div>
+      <div class="bubble" id="b3"><span class="who" data-t="who"></span><span data-t="b3a"></span><span data-t="b3b"></span></div>
+      <div class="bubble" id="b4"><span data-t="b4"></span></div>
+    </div>
+
+    <!-- layer: captions -->
+    <div id="caps" class="clip layer" data-start="0" data-duration="23.4" data-track-index="4" style="z-index: 6" data-layout-allow-overlap>
+      <div id="clock" data-layout-ignore>23:41</div>
+      <div class="cap" id="c1"><span id="c1-a" data-t="c1a"></span><span id="c1-b" data-t="c1b"></span></div>
+      <div class="cap" id="c1x"><span data-t="c1x"></span></div>
+      <div class="cap" id="c2"><span data-t="c2a"></span><span data-t="c2b"></span></div>
+      <div class="cap" id="c3"><span data-t="c3"></span></div>
+      <div class="cap" id="c4"><span data-t="c4a"></span><span data-t="c4b"></span></div>
+      <div class="cap" id="c5"><span data-t="c5a"></span><span data-t="c5b"></span></div>
+      <div class="cap" id="c6"><span data-t="c6a"></span><span data-t="c6b"></span></div>
+    </div>
+
+    <!-- layer: end card -->
+    <div id="endcard" class="clip layer" data-start="0" data-duration="23.4" data-track-index="5" style="z-index: 4">
+      <div class="end" id="end-name">Doomscroll Rehab</div>
+      <div class="end" id="end-cta-pos"><div id="end-cta" data-t="cta"></div></div>
+      <div class="end" id="end-url">doomscroll-rehab-site.vercel.app</div>
+      <div class="end" id="end-sub" data-t="sub"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      // ---- copy: edit here. Empty string = that line is not drawn ----
+      var STR = {
+        zh: {
+          c1a: "再…", c1b: "再滑一個影片。", c1x: "怎麼已經三點了？", p0: "半夜煮泡麵", p1: "穿牆失敗合輯", p2: "幽靈開箱",
+          c2a: "裝了這個之後，", c2b: "短影音越滑越卡。", c3: "卡到你懶得等。",
+          c4a: "沒有人鎖你。", c4b: "是你自己放下的。", c5a: "真的有事要用？", c5b: "跟它講一聲就好。",
+          c6a: "你昨晚", c6b: "滑到幾點？", c6a_b: "你昨晚", c6b_b: "滑到幾點？",
+          b1a: "很卡吼？", b1b: "去睡啦。",
+          mea: "找一下姊姊傳的食譜。", b3a: "好，給你 5 分鐘。", b4: "留言告訴我。",
+          cta: "加入等候名單", sub: "Android 先推出",
+          chipA: "滑了", chipB: "分鐘", l3: "載入中 0.8 秒", l4: "載入中 1.1 秒", l5: "載入中",
+          t0: "幽靈學做菜 第 12 集", t1: "我家的貓看得到我", t2: "第一次戴墨鏡", t3: "我上班拿到一顆星星", t4: "尖叫反應合輯"
+        },
+        en: {
+          c1a: "Just…", c1b: "one more video.", c1x: "How is it 3 a.m. already?", p0: "Midnight noodles", p1: "Walking through walls, fails", p2: "Ghost unboxing",
+          c2a: "With this app,", c2b: "the feed lags as you scroll.", c3: "Until you stop waiting.",
+          c4a: "Nobody locked you out.", c4b: "You put it down yourself.", c5a: "Really need it?", c5b: "Just say why.",
+          c6a: "How late did you", c6b: "scroll last night?", c6a_b: "How late did you", c6b_b: "scroll last night?",
+          b1a: "Laggy, huh?", b1b: "Go to bed.",
+          mea: "Need my sister's recipe.", b3a: "OK. 5 minutes.", b4: "Tell me in the comments.",
+          cta: "Join the waitlist", sub: "Android first",
+          chipA: "", chipB: "min in", l3: "Loading 0.8 s", l4: "Loading 1.1 s", l5: "Loading",
+          t0: "Ghost learns to cook, part 12", t1: "My cat can see me", t2: "Trying sunglasses", t3: "I got a gold star at work", t4: "Scream reactions"
+        }
+      };
+      // ---- placement per version. A: the phone is the hero. B: Slo is the hero ----
+      var POS = {
+        // A shares B's phone and ghost placement; only the end card differs (button and waitlist link)
+        a: { phone: { x: 100, y: 0, scale: 0.86 }, idle: { x: 70, y: 1130, scale: 1.25 }, speak: { x: 90, y: 1060, scale: 1.35 }, end: { x: 350, y: 640, scale: 1.2 },
+             b1: [250, 610], bme: [400, 630], b3: [250, 800], b4: [540, 0] },
+        b: { phone: { x: 100, y: 0, scale: 0.86 }, idle: { x: 70, y: 1130, scale: 1.25 }, speak: { x: 90, y: 1060, scale: 1.35 }, end: { x: 350, y: 699, scale: 1.4 },
+             b1: [250, 610], bme: [400, 630], b3: [250, 800], b4: [540, 1030] }
+      };
+
+      var vars = window.__promoVars || {};   // set in index.html from the render's --variables
+      var lang = vars.lang === "en" ? "en" : "zh";
+      var ver = vars.version === "b" ? "b" : "a";
+      var S = STR[lang], P = POS[ver];
+      var root = document.querySelector('[data-composition-id="film"]');
+      // per-language and per-version sizes are set here, because scene styles are scoped and a class on the root does not reach them
+      function css(sel, o) { root.querySelectorAll(sel).forEach(function (el) { for (var k in o) el.style[k] = o[k]; }); }
+      if (lang === "en") { css(".cap", { fontSize: "74px", lineHeight: "1.2", letterSpacing: "-0.02em" }); css(".bubble", { fontSize: "48px" }); css("#c1", { gap: "0.25em" }); }
+      if (ver === "b") { css("#end-name", { top: "1190px", fontSize: "44px" }); css("#end-url", { top: "1262px", fontSize: "34px" }); }
+      if (ver === "b") { S.c6a = S.c6a_b; S.c6b = S.c6b_b; }
+      // the hook flicks through nine clips: the three written above, then two more rounds of copies in other colours
+      (function () {
+        var col = document.getElementById("feed-col"), first = document.getElementById("tile0");
+        var bg = ["#6D43D8", "#8B5CF6", "#5B34C4", "#7C3AED", "#4C2A9E", "#6D43D8"];
+        for (var i = 0; i < 6; i++) {
+          var c = document.getElementById("pre" + (i % 3)).cloneNode(true);
+          c.id = "pre" + (i + 3); c.style.background = bg[i];
+          col.insertBefore(c, first);
+        }
+      })();
+      root.querySelectorAll("[data-t]").forEach(function (el) {
+        var t = S[el.getAttribute("data-t")] || "";
+        el.textContent = t;
+        if (!t) el.style.display = "none";
+      });
+      function place(id, xy) { var el = document.getElementById(id); el.style.left = xy[0] + "px"; el.style.top = xy[1] + "px"; }
+      place("b1", P.b1); place("b2", P.b1); place("bme", P.bme); place("b3", P.b3); place("b4", P.b4);
+      document.getElementById("bme").style.left = "auto"; document.getElementById("bme").style.right = "80px";   // the viewer's bubble hugs the right edge
+
+      var H = 852;                       // one screen of feed
+      var IN = "power4.out", OUT = "power3.in";
+      var tl = gsap.timeline({ paused: true });
+
+      function capIn(id, t) { tl.fromTo(id, { opacity: 0, filter: "blur(8px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: IN }, t); }
+      function capOut(id, t) { tl.fromTo(id, { opacity: 1 }, { opacity: 0, duration: 0.15, ease: OUT, immediateRender: false }, t); }
+      var PRE = 9;                       // extra tiles in front of tile0, used by the hook
+      function swipe(t, i, d, ease) {
+        tl.to("#feed-col", { y: -(i + PRE) * H, duration: d, ease: ease || "power3.inOut" }, t);
+        tl.to("#chip-nums", { y: -i * 40, duration: 0.2, ease: IN }, t + d * 0.5);
+      }
+      function pop(id, t) { tl.fromTo(id, { opacity: 0, scale: 0.6, transformOrigin: "0% 100%" }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, t); }
+      function rise(id, t) { tl.fromTo(id, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.25, ease: IN }, t); }
+      function gone(id, t) { tl.to(id, { opacity: 0, duration: 0.15, ease: OUT }, t); }
+
+      // starting state
+      tl.set("#phone-pos", { x: P.phone.x, y: P.phone.y, scale: P.phone.scale, transformOrigin: "50% 50%" }, 0);
+      tl.set("#slo-art", { x: P.idle.x, y: P.idle.y, scale: P.idle.scale, transformOrigin: "50% 100%" }, 0);
+      tl.set("#feed-col", { y: 0 }, 0);
+      tl.set("#chip-nums", { y: 0 }, 0);
+      // the loading bars tick one eighth of a turn at a time for the whole film; they only show while a tile is waiting
+      tl.fromTo(".spin-g", { rotation: 0, transformOrigin: "50% 50%" }, { rotation: -360 * 26, duration: 23.4, ease: "steps(208)" }, 0);
+
+      // S1 hook, 0.0 to 4.6: "one... one more video" at 23:41. Two unhurried swipes, a minute each.
+      // Then nine swipes that keep getting faster while the clock runs away, landing on 03:17 at 3.3
+      var clockEl = document.getElementById("clock");
+      var M0 = 23 * 60 + 41, clk = { m: M0 };
+      function drawClock() {
+        var m = Math.round(clk.m), h = Math.floor(m / 60) % 24, mm = m % 60;
+        clockEl.textContent = (h < 10 ? "0" : "") + h + ":" + (mm < 10 ? "0" : "") + mm;
+      }
+      function minute(t, from) {   // one calm tick of the clock
+        tl.fromTo(clk, { m: from }, { m: from + 1, duration: 0.02, ease: "none", onUpdate: drawClock, immediateRender: false }, t);
+        tl.fromTo("#clock", { scale: 1.05 }, { scale: 1, duration: 0.25, ease: IN, transformOrigin: "50% 60%", immediateRender: false }, t);
+      }
+      tl.fromTo(clk, { m: M0 }, { m: M0, duration: 0.02, ease: "none", onUpdate: drawClock }, 0);
+      tl.set("#chip", { opacity: 0 }, 0);
+      tl.fromTo("#c1-b", { opacity: 0 }, { opacity: 1, duration: 0.15, ease: IN }, 0.45);   // the stammer: "one..." then the rest
+      tl.to("#feed-col", { y: -1 * H, duration: 0.32, ease: "power3.inOut" }, 0.8);
+      minute(1.1, M0);
+      tl.to("#feed-col", { y: -2 * H, duration: 0.32, ease: "power3.inOut" }, 1.5);
+      minute(1.8, M0 + 1);
+      [[2.10, 0.16], [2.30, 0.15], [2.48, 0.14], [2.64, 0.12], [2.78, 0.11], [2.90, 0.10], [3.01, 0.09], [3.11, 0.09], [3.20, 0.09]].forEach(function (s, k) {
+        tl.to("#feed-col", { y: -(k + 3) * H, duration: s[1], ease: "power2.inOut" }, s[0]);
+      });
+      tl.set("#chip-nums", { y: -80 }, 3.5);
+      tl.fromTo(clk, { m: M0 + 2 }, { m: 27 * 60 + 17, duration: 1.2, ease: "power2.in", onUpdate: drawClock, immediateRender: false }, 2.1);
+      tl.fromTo("#clock", { scale: 1 }, { scale: 1.14, duration: 1.2, ease: "power2.in", transformOrigin: "50% 60%", immediateRender: false }, 2.1);
+      tl.to("#clock", { scale: 1, duration: 0.25, ease: IN }, 3.3);
+      tl.fromTo("#c1", { opacity: 1 }, { opacity: 0, duration: 0.1, ease: OUT, immediateRender: false }, 3.2);
+      capIn("#c1x", 3.3);
+      capOut("#c1x", 4.5);
+      tl.to("#clock", { opacity: 0, duration: 0.15, ease: OUT }, 4.5);
+
+      // S2 it gets slower, 4.6 to 9.3
+      tl.to("#chip", { opacity: 1, duration: 0.25, ease: IN }, 4.7);
+      capIn("#c2", 4.65);
+      swipe(5.2, 3, 0.5);
+      tl.to("#load3", { opacity: 0, duration: 0.2, ease: OUT }, 6.5);
+      swipe(6.9, 4, 0.7);
+      tl.to("#load4", { opacity: 0, duration: 0.2, ease: OUT }, 8.7);
+      capOut("#c2", 9.15);
+
+      // S3 stuck, 9.3 to 10.8
+      swipe(9.3, 5, 1.0, "power2.inOut");
+      capIn("#c3", 9.6);
+      capOut("#c3", 11.1);
+
+      // S4 key moment at 11.3: Slo dips (anticipation), jumps in front of the phone (release), bubble pops, then everything holds
+      tl.to("#slo-art", { y: P.idle.y + 80, scaleY: P.idle.scale * 0.9, duration: 0.3, ease: "power2.in" }, 10.7);
+      tl.set("#slo", { zIndex: 4 }, 11);
+      tl.to("#slo-art", { x: P.speak.x, y: P.speak.y, scaleX: P.speak.scale, scaleY: P.speak.scale, duration: 0.45, ease: "back.out(1.6)" }, 11);
+      tl.to("#chip", { opacity: 0, duration: 0.15, ease: OUT }, 11.15);   // the bubble takes this corner
+      pop("#b1", 11.3);
+
+      // S5 the phone goes down, 13.2 to 15.9. The caption stays 2 s
+      tl.to("#phone-body", { y: -24, rotation: -2, duration: 0.18, ease: "power2.out" }, 13.2);
+      tl.to("#phone-body", { y: 1700, rotation: 10, duration: 0.5, ease: OUT }, 13.4);
+      gone("#b1", 13.7);
+      capIn("#c4", 13.85);
+      capOut("#c4", 15.85);
+
+      // S6 a real reason gets time back, 16 to 20.2. Caption first, then the chat; never both
+      capIn("#c5", 16.05);
+      capOut("#c5", 17.75);
+      rise("#bme", 17.9);
+      pop("#b3", 18.7);
+      gone("#bme", 20.2);
+      gone("#b3", 20.2);
+
+      // S7 end card, 20.2 to 23.3
+      tl.to("#slo-art", { x: P.end.x, y: P.end.y, scaleX: P.end.scale, scaleY: P.end.scale, duration: 0.5, ease: IN }, 20.35);
+      capIn("#c6", 20.4);
+      if (ver === "a") {
+        rise("#end-name", 20.7);
+        tl.fromTo("#end-cta-pos", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.25, ease: IN }, 21);
+        rise("#end-url", 21.3);
+        rise("#end-sub", 21.35);
+      } else {
+        tl.fromTo("#b4", { opacity: 0, y: 24, xPercent: -50 }, { opacity: 1, y: 0, xPercent: -50, duration: 0.25, ease: IN }, 20.8);
+        rise("#end-name", 21.1);
+        rise("#end-url", 21.3);
+      }
+
+      // ---- Slo is alive: breathing for the whole film, plus a small reaction on every beat ----
+      // breathing: 0.9 s up, 0.9 s down, 26 half-cycles = 23.4 s, so the last frame matches the first
+      tl.fromTo("#slo-bob", { y: 0 }, { y: -16, duration: 0.9, ease: "sine.inOut", repeat: 25, yoyo: true }, 0);
+      tl.set("#slo-art", { rotation: 0 }, 0);
+      function tilt(t, deg, d) { tl.to("#slo-art", { rotation: deg, duration: d || 0.3, ease: IN }, t); }
+      function hop(t, h) {
+        tl.to("#slo-hop", { y: -h, duration: 0.14, ease: "power2.out" }, t);
+        tl.to("#slo-hop", { y: 0, duration: 0.2, ease: "power2.in" }, t + 0.14);
+      }
+      tilt(0.8, 5); tilt(2.1, 9, 1.0); tilt(3.3, -4, 0.2); hop(3.3, 30);   // leans in, leans further as it speeds up, startles when the clock lands
+      tilt(4.7, 0);
+      tilt(5.2, 6); tilt(6.5, 0);                             // peeks at each slow load
+      tilt(6.9, 8); tilt(8.7, 0);
+      tilt(9.3, 10, 0.6); tilt(10.7, 0, 0.2);
+      hop(11.65, 22); tilt(11.9, -5); tilt(12.6, 0);           // talks, then cocks its head
+      tilt(13.4, 8, 0.4);                                     // watches the phone fall
+      tilt(14, 0, 0.2); hop(14.1, 46); hop(14.48, 30);      // two happy hops
+      tilt(16.05, 4); tilt(17.3, 0);
+      tilt(17.9, -7); tilt(18.7, 0, 0.2); hop(18.7, 26);      // listens, then answers
+      hop(21, 34); tilt(21.4, 4); tilt(22.3, 0, 0.5);       // end card
+
+      // ---- eyes. The pupils hang from the lid line (y = 221 in image pixels), so squashing them upward closes the eye ----
+      var EYES = ["#eye-l", "#eye-r"], EO = ["372.5 221", "554.5 221"];
+      EYES.forEach(function (id, i) { tl.set(id, { svgOrigin: EO[i], scaleY: 1, x: 0 }, 0); });
+      var open = 1;                                   // how open the eyes are right now; blinks return to this
+      function eyes(t, o, d) { open = o; tl.to(EYES, { scaleY: o, duration: d || 0.2, ease: IN }, t); }
+      function look(t, dx, d) { tl.to(EYES, { x: dx, duration: d || 0.25, ease: IN }, t); }
+      function blink(t) {
+        tl.to(EYES, { scaleY: 0.08, duration: 0.07, ease: "power2.in" }, t);
+        tl.to(EYES, { scaleY: open, duration: 0.11, ease: "power2.out" }, t + 0.09);
+      }
+      blink(0.5);
+      look(0.8, 12);                                  // watches the feed
+      blink(2.0);
+      eyes(3.3, 1.35, 0.12); look(3.3, 0, 0.12);      // wide when the clock lands on 03:17
+      eyes(4.4, 1);
+      look(5.2, 12); blink(6.0); look(6.5, 0);        // glances at each slow load
+      look(6.9, 12); blink(8.1); look(8.7, 0);
+      look(9.3, 14);
+      look(10.7, 0, 0.15);
+      eyes(11.3, 0.7);                                // half shut while it says "go to bed"
+      blink(12.3);
+      eyes(13.0, 1);
+      look(13.4, 12, 0.3);                            // follows the phone out
+      eyes(14.0, 1.3, 0.15); look(14.0, 0, 0.2);      // pleased
+      eyes(15.0, 1); blink(15.6);
+      blink(17.0);
+      look(17.9, 14);                                 // reads the request on the right
+      blink(18.5); look(18.7, 0);
+      blink(19.6);
+      eyes(21.0, 1.25, 0.15); eyes(21.6, 1);
+      blink(22.3); blink(22.55);                      // a double blink to close
+
+      window.__timelines["film"] = tl;
+    })();
+  </script>
+</template>
