@@ -397,15 +397,15 @@ class _HomePageState extends State<HomePage> {
                   child: Text('Doomscroll Rehab',
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w500, color: t.text)),
                 ),
-                Text(
-                  stage == 'boost'
-                      ? tr('Boost, ${s['boostLeftSec']} s left', '全速時段，剩 ${s['boostLeftSec']} 秒')
-                      : (stageText[stage] ?? stage),
-                  style: TextStyle(fontSize: 14, color: stageColor),
-                ),
-                const SizedBox(width: 12),
                 plain(zh ? 'EN' : '中文', () => setState(() => zh = !zh)),
               ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              stage == 'boost'
+                  ? tr('Boost, ${s['boostLeftSec']} s left', '全速時段，剩 ${s['boostLeftSec']} 秒')
+                  : (stageText[stage] ?? stage),
+              style: TextStyle(fontSize: 14, color: stageColor),
             ),
             const SizedBox(height: 16),
             card([

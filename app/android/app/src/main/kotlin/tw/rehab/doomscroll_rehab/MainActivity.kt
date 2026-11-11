@@ -84,6 +84,20 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // Demo hook for driving the session clock from a laptop during a recording:
+    //   adb shell am start -n tw.rehab.doomscroll_rehab/.MainActivity --ef addMinutes 30
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("reset", false)) Engine.reset()
+        if (intent.hasExtra("timeScale")) {
+            Engine.timeScale = intent.getFloatExtra("timeScale", 1f).toDouble().coerceIn(1.0, 120.0)
+        }
+        if (intent.hasExtra("addMinutes")) {
+            Engine.sessionMs = maxOf(0.0, Engine.sessionMs + intent.getFloatExtra("addMinutes", 0f) * 60000.0)
+            Engine.lastActive = System.currentTimeMillis()
+        }
+    }
+
     private fun isInstalled(pkg: String): Boolean = try {
         packageManager.getPackageInfo(pkg, 0)
         true

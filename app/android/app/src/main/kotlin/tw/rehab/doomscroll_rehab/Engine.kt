@@ -33,6 +33,8 @@ object Engine {
     @Volatile var day = 0
     @Volatile var grantsToday = 0
 
+    @Volatile var totalBytes = 0L
+
     class HostStat(@Volatile var bytes: Long, @Volatile var last: Long)
     val hosts = ConcurrentHashMap<String, HostStat>()
 
@@ -73,6 +75,7 @@ object Engine {
         val s = hosts.getOrPut(host) { HostStat(0, now) }
         s.bytes += n
         s.last = now
+        totalBytes += n
         lastActive = now
         if (hosts.size > 300) {
             hosts.entries.minByOrNull { it.value.last }?.let { hosts.remove(it.key) }
@@ -127,6 +130,8 @@ object Engine {
         if (ticker != null) return
         val t = Thread {
             var last = System.currentTimeMillis()
+            var lastLog = last
+            var lastLogBytes = totalBytes
             while (!Thread.currentThread().isInterrupted) {
                 try {
                     Thread.sleep(250)
@@ -136,6 +141,18 @@ object Engine {
                 val now = System.currentTimeMillis()
                 val dt = now - last
                 last = now
+                if (now - lastLog >= 5000) {
+                    // Measured throughput next to the limit, for checking the throttle over adb logcat.
+                    val k = currentKbps()
+                    val measured = (totalBytes - lastLogBytes) * 8.0 / (now - lastLog)
+                    android.util.Log.i(
+                        "Rehab",
+                        "stage=${stage(true)} session=${"%.1f".format(sessionMs / 60000.0)}min " +
+                            "limit=${if (k.isInfinite()) "full" else "%.0f".format(k)}kbps measured=${"%.0f".format(measured)}kbps",
+                    )
+                    lastLog = now
+                    lastLogBytes = totalBytes
+                }
                 if (isActive()) {
                     if (!boosted()) sessionMs += dt * timeScale
                 } else if (sessionMs > 0 && now - lastActive > idleResetMs()) {
