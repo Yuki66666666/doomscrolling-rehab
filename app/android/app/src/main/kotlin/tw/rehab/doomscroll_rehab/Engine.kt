@@ -58,20 +58,50 @@ object Engine {
     @Volatile private var ticker: Thread? = null
 
     fun graceFor(d: Int): Double = max(1.0, startGraceMin * dailyFactor.pow(d))
+
+    // Demo timeline: when set, it replaces the plan so a whole session plays out in seconds.
+    @Volatile var demoGraceMin: Double? = null
+    @Volatile var demoRampMin: Double? = null
+    @Volatile var demoFloorKbps: Double? = null
+
+    private fun graceNow(): Double = demoGraceMin ?: graceFor(day)
+    private fun rampNow(): Double = demoRampMin ?: rampMin
+    private fun floorNow(): Double = demoFloorKbps ?: floorKbps
+
+    /** Smooth until [smoothSec], then slower every second, stuck from [stuckSec] on. Real seconds. */
+    fun setDemoTimeline(smoothSec: Double, stuckSec: Double) {
+        val smooth = max(0.0, smoothSec)
+        demoGraceMin = smooth / 60.0
+        demoRampMin = max(1.0, stuckSec - smooth) / 60.0
+        demoFloorKbps = 4.0 // far below any video bitrate: nothing new loads
+        timeScale = 1.0
+        sessionMs = 0.0
+        slowedMs = 0.0
+        boostUntil = 0L
+    }
+
+    fun clearDemoTimeline() {
+        demoGraceMin = null
+        demoRampMin = null
+        demoFloorKbps = null
+        sessionMs = 0.0
+        slowedMs = 0.0
+    }
+
     fun boosted(): Boolean = System.currentTimeMillis() < boostUntil
-    fun inGrace(): Boolean = sessionMs / 60000.0 < graceFor(day)
+    fun inGrace(): Boolean = sessionMs / 60000.0 < graceNow()
     fun isActive(): Boolean = System.currentTimeMillis() - lastActive < ACTIVE_WINDOW_MS
 
     /** 0 during the full-speed window, then 0..1 along the ramp. */
     fun progress(): Double {
         val m = sessionMs / 60000.0
-        val g = graceFor(day)
-        return if (m < g) 0.0 else min(1.0, (m - g) / rampMin)
+        val g = graceNow()
+        return if (m < g) 0.0 else min(1.0, (m - g) / rampNow())
     }
 
     fun currentKbps(): Double =
         if (boosted() || inGrace()) Double.POSITIVE_INFINITY
-        else exp(ln(MAX_KBPS) + (ln(floorKbps) - ln(MAX_KBPS)) * progress())
+        else exp(ln(MAX_KBPS) + (ln(floorNow()) - ln(MAX_KBPS)) * progress())
 
     /** Bytes per second, or infinity. */
     fun currentRate(): Double {
@@ -236,10 +266,14 @@ object Engine {
             "running" to running,
             "stage" to stage(running),
             "sessionMin" to sessionMs / 60000.0,
-            "graceMin" to graceFor(day),
-            "rampMin" to rampMin,
+            "graceMin" to graceNow(),
+            "rampMin" to rampNow(),
             "kbps" to if (k.isInfinite()) null else k,
-            "minKbps" to floorKbps,
+            "minKbps" to floorNow(),
+            // seconds, or null when the real plan is in force
+            "demoSmoothSec" to demoGraceMin?.let { it * 60.0 },
+            "demoStuckSec" to demoGraceMin?.let { (it + (demoRampMin ?: 0.0)) * 60.0 },
+            "sessionSec" to sessionMs / 1000.0,
             "maxKbps" to MAX_KBPS,
             "connectDelayMs" to connectDelayMs().toInt(),
             "boostLeftSec" to if (boosted()) ((boostUntil - now) / 1000).toInt() + 1 else 0,

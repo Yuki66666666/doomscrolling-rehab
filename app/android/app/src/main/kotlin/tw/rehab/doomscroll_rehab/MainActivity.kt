@@ -105,6 +105,19 @@ class MainActivity : FlutterActivity() {
                     result.success(true)
                 }
 
+                // Demo: "smooth for the first A seconds, slower until B seconds, stuck after that".
+                "demoTimeline" -> {
+                    if (call.argument<Boolean>("clear") == true) {
+                        Engine.clearDemoTimeline()
+                    } else {
+                        Engine.setDemoTimeline(
+                            call.argument<Double>("smoothSec") ?: 10.0,
+                            call.argument<Double>("stuckSec") ?: 30.0,
+                        )
+                    }
+                    result.success(true)
+                }
+
                 "plan" -> {
                     call.argument<Double>("startGraceMin")?.let { Engine.startGraceMin = it.coerceIn(2.0, 30.0) }
                     call.argument<Double>("dailyFactor")?.let { Engine.dailyFactor = it.coerceIn(0.85, 0.98) }
@@ -167,6 +180,14 @@ class MainActivity : FlutterActivity() {
                 window.decorView.postDelayed({ startVpn() }, 800)
             }
         }
+        // --ef demoSmooth 10 --ef demoStuck 30 sets the demo timeline from a laptop; --ez demoClear true removes it.
+        if (intent.hasExtra("demoSmooth") && intent.hasExtra("demoStuck")) {
+            Engine.setDemoTimeline(
+                intent.getFloatExtra("demoSmooth", 10f).toDouble(),
+                intent.getFloatExtra("demoStuck", 30f).toDouble(),
+            )
+        }
+        if (intent.getBooleanExtra("demoClear", false)) Engine.clearDemoTimeline()
         if (intent.hasExtra("grant")) {
             Engine.grant(intent.getIntExtra("grant", 0), intent.getStringExtra("words") ?: "")
         }
