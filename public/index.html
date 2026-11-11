@@ -97,6 +97,14 @@
   .hosts li:first-child { border-top: 0; }
   .hosts .name { overflow-wrap: anywhere; }
   .hosts .tag { color: var(--warn); }
+  .hosts .side { flex: none; }
+  .hosts .kept { color: var(--ok); }
+  .hosts .broken { color: var(--bad); }
+  .demo-flag { color: var(--warn); font-weight: 500; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; align-items: end; height: 64px; margin: 4px 0; }
+  .hours div { background: var(--line-strong); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .hours div[data-top="true"] { background: var(--text); }
+  .hour-axis { display: flex; justify-content: space-between; }
   code { font: 14px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; background: var(--bubble); border-radius: 4px; padding: 1px 6px; }
 </style>
 </head>
@@ -149,6 +157,38 @@
           <button class="plain" id="coachBtn" type="submit">Write my plan</button>
         </form>
         <p class="small muted" id="coachStatus" style="margin-top:8px"></p>
+      </section>
+
+      <section class="card">
+        <h2>Said versus did</h2>
+        <p class="small muted">What you told the negotiator, next to what the proxy saw after the boost ran out.</p>
+        <p class="small demo-flag" id="repDemo" style="margin-top:8px" hidden>Demo data, not measured</p>
+        <div class="stats" style="margin-top:8px">
+          <div>
+            <p class="muted small">Promises kept</p>
+            <p class="stat-value" id="repKept">0 <small>of 0</small></p>
+          </div>
+        </div>
+        <p class="small muted" id="repNumbers"></p>
+        <ul class="hosts" id="repPromises" style="margin-top:8px"></ul>
+        <p class="small muted" style="margin-top:12px">Minutes by hour of day</p>
+        <div class="hours" id="repHours"></div>
+        <p class="small muted hour-axis"><span>0:00</span><span>12:00</span><span>23:00</span></p>
+        <p class="small" id="repHourNote"></p>
+        <p class="small muted" style="margin-top:12px">Came from</p>
+        <ul class="hosts" id="repFrom"></ul>
+        <p class="small muted" id="repFromEmpty">No host seen in the minute before a session yet.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="plain" id="repWrite" type="button">Write my report</button>
+          <button class="plain" id="repLoad" type="button">Load demo week</button>
+          <button class="plain" id="repClear" type="button">Clear demo week</button>
+        </div>
+        <p class="small" id="repSummary" style="margin-top:8px" hidden></p>
+        <div class="row" id="repApplyRow" style="margin-top:8px" hidden>
+          <button class="plain" id="repApply" type="button">Apply to my plan</button>
+          <span class="small muted" id="repSuggest"></span>
+        </div>
+        <p class="small muted" id="repStatus" style="margin-top:8px"></p>
       </section>
 
       <section class="card">
@@ -280,7 +320,9 @@
     if (!$('coachStatus').dataset.busy) {
       $('coachStatus').textContent = s.planSource === 'coach'
         ? 'This plan was written by the coach from what you told it and ' + s.sessionsLogged + ' measured sessions.'
-        : 'This is the default plan. Nobody has told the coach anything yet.';
+        : s.planSource === 'report'
+          ? 'This plan was changed from the usage report, after you pressed Apply.'
+          : 'This is the default plan. Nobody has told the coach anything yet.';
     }
   }
 
@@ -430,11 +472,159 @@
     post('/api/demo', { reset: true }).then(render);
   });
 
+  // ---------- said versus did ----------
+
+  var suggested = null;
+  var reportDemo = null;
+
+  function hourLabel(h) { return h + ':00'; }
+
+  function clearSummary() {
+    suggested = null;
+    $('repSummary').hidden = true;
+    $('repSummary').textContent = '';
+    $('repApplyRow').hidden = true;
+    $('repSuggest').textContent = '';
+  }
+
+  function renderReport(r) {
+    if (!r || r.error) return;
+    if (reportDemo !== null && reportDemo !== r.demo) {
+      // the summary was written about the other set of records
+      clearSummary();
+      $('repStatus').textContent = '';
+    }
+    reportDemo = r.demo;
+    $('repDemo').hidden = !r.demo;
+    $('repDemo').textContent = 'Demo data, not measured' + (r.demo && r.hiddenWhileDemo
+      ? '. Your own log (sessions: ' + r.hiddenWhileDemo.sessions + ', promises: ' + r.hiddenWhileDemo.promises + ') is hidden until you clear the demo week.'
+      : '');
+    $('repLoad').disabled = r.demo;
+    $('repClear').disabled = !r.demo;
+
+    setStat($('repKept'), String(r.promises.kept), 'of ' + r.promises.made);
+    var parts = [];
+    parts.push(r.promises.broken + ' broken');
+    if (r.promises.pending) parts.push(r.promises.pending + ' still checking');
+    parts.push(r.sessions + ' sessions, ' + r.totalMinutes + ' min');
+    parts.push(r.boostsAsked + ' boosts asked, ' + r.boostsGranted + ' granted');
+    if (r.avgSlowedMin !== null) parts.push('Stayed ' + r.avgSlowedMin + ' min on average after slowing began');
+    $('repNumbers').textContent = parts.join('. ') + '.';
+
+    var ul = $('repPromises');
+    ul.textContent = '';
+    r.promiseList.slice(0, 8).forEach(function (p) {
+      var li = document.createElement('li');
+      var words = document.createElement('span');
+      words.className = 'name';
+      words.textContent = p.words ? '"' + p.words + '"' : 'No words recorded';
+      var side = document.createElement('span');
+      side.className = 'row side';
+      var min = document.createElement('span');
+      min.className = 'muted';
+      min.textContent = p.minutes + ' min';
+      var out = document.createElement('span');
+      out.className = p.kept === true ? 'kept' : p.kept === false ? 'broken' : 'muted';
+      out.textContent = p.kept === true ? 'kept' : p.kept === false ? 'broken' : 'still checking';
+      side.appendChild(min);
+      side.appendChild(out);
+      li.appendChild(words);
+      li.appendChild(side);
+      ul.appendChild(li);
+    });
+    if (!r.promiseList.length) {
+      var none = document.createElement('li');
+      none.className = 'muted';
+      none.textContent = 'No boosts granted yet. Ask for full speed and the promise shows up here.';
+      ul.appendChild(none);
+    }
+
+    var box = $('repHours');
+    if (box.childElementCount !== 24) {
+      box.textContent = '';
+      for (var i = 0; i < 24; i++) box.appendChild(document.createElement('div'));
+    }
+    var max = Math.max.apply(null, r.byHour);
+    Array.prototype.forEach.call(box.children, function (b, h) {
+      b.style.height = max > 0 ? Math.round((r.byHour[h] / max) * 100) + '%' : '0%';
+      b.setAttribute('data-top', h === r.riskiestHour ? 'true' : 'false');
+      b.setAttribute('title', hourLabel(h) + ', ' + r.byHour[h] + ' min');
+    });
+    box.setAttribute('role', 'img');
+    box.setAttribute('aria-label', r.riskiestHour === null
+      ? 'No minutes recorded yet'
+      : 'Minutes by hour of day. Most at ' + hourLabel(r.riskiestHour));
+    $('repHourNote').textContent = r.riskiestHour === null
+      ? 'No finished sessions yet.'
+      : 'Riskiest hour: sessions that start at ' + hourLabel(r.riskiestHour) + ', ' + r.byHour[r.riskiestHour] + ' min in total.';
+
+    var from = $('repFrom');
+    from.textContent = '';
+    r.cameFrom.forEach(function (c) {
+      var li = document.createElement('li');
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = c.host;
+      var n = document.createElement('span');
+      n.className = 'muted side';
+      n.textContent = c.count + (c.count === 1 ? ' session' : ' sessions');
+      li.appendChild(name);
+      li.appendChild(n);
+      from.appendChild(li);
+    });
+    $('repFromEmpty').hidden = r.cameFrom.length > 0;
+  }
+
+  function pollReport() {
+    fetch('/api/report').then(function (r) { return r.json(); }).then(renderReport).catch(function () {});
+  }
+
+  $('repWrite').addEventListener('click', function () {
+    var status = $('repStatus');
+    clearSummary();
+    status.textContent = 'The model is reading your numbers';
+    $('repWrite').disabled = true;
+    post('/api/report/summary', {}).then(function (r) {
+      if (r.error) { status.textContent = r.error; return; }
+      $('repSummary').hidden = false;
+      $('repSummary').textContent = r.summary;
+      status.textContent = r.demo ? 'Written by the model from the demo week, not from measured use.' : 'Written by the model from the numbers above.';
+      if (r.suggested) {
+        suggested = r.suggested;
+        $('repApplyRow').hidden = false;
+        $('repSuggest').textContent = 'Suggested: ' + r.suggested.start_grace_min + ' min at full speed on day 1, ' +
+          Math.round((1 - r.suggested.daily_factor) * 100) + ' percent shorter each day, ramp ' +
+          r.suggested.ramp_min + ' min, floor ' + r.suggested.floor_kbps + ' kbps. Nothing changes until you press Apply.';
+      }
+    }).catch(function (err) {
+      status.textContent = 'Could not reach the model: ' + err.message;
+    }).then(function () { $('repWrite').disabled = false; });
+  });
+
+  $('repApply').addEventListener('click', function () {
+    if (!suggested) return;
+    $('repApply').disabled = true;
+    post('/api/report/apply', suggested).then(function (r) {
+      if (r.error) { $('repStatus').textContent = r.error; return; }
+      render(r);
+      $('repApplyRow').hidden = true;
+      suggested = null;
+      $('repStatus').textContent = 'Applied. The taper card above shows the new plan.';
+    }).catch(function (err) {
+      $('repStatus').textContent = 'Could not apply: ' + err.message;
+    }).then(function () { $('repApply').disabled = false; });
+  });
+
+  $('repLoad').addEventListener('click', function () { post('/api/report/demo-week', {}).then(renderReport); });
+  $('repClear').addEventListener('click', function () { post('/api/report/clear', {}).then(renderReport); });
+
   function poll() {
     fetch('/api/state').then(function (r) { return r.json(); }).then(render).catch(function () {});
   }
   poll();
   setInterval(poll, 1000);
+  pollReport();
+  setInterval(pollReport, 2000);
 })();
 </script>
 </body>

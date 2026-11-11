@@ -29,6 +29,10 @@ We found no published study of network throttling as an intervention. That is th
 - Coach: you describe how you scroll in your own words. The model sets the four numbers that shape your curve (full-speed window, daily tightening, ramp length, floor speed) and says why. It also sees the sessions the proxy has measured.
 - Negotiator: the model decides whether you get speed back and for how long.
 - Feed finder: the model reads the hostnames your phone is loading and picks out the ones that are feeds, so new apps are covered without a hand-kept list. It can only add hosts the phone really contacted.
+- Usage report ("Said versus did"): every boost is logged with the words you used to ask for it. When the boost runs out, the proxy watches for two minutes; feed traffic in that window marks the promise broken, silence marks it kept.
+- `GET /api/report` is plain arithmetic, no model: promises kept and broken, minutes by hour of day, how long you stayed after slowing began, and which host you came from.
+- "Write my report" sends those numbers to the model, which answers in at most 90 words, quotes your own words back where a promise was broken, names the riskiest hour and proposes one change to the plan. The change is applied only if you press "Apply to my plan".
+- "Load demo week" swaps in a fabricated week, labelled "Demo data, not measured" and never mixed with the real log.
 
 The throttle itself is plain code. The model decides how hard it bites, for whom, and when it lets go.
 
