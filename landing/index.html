@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Doomscroll Rehab: finally put your phone down</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doomscroll Rehab: how far can you scroll?</title>
 <link rel="icon" href="icon-192.png">
-<meta name="description" content="Short videos get slower and blurrier the longer you watch, until putting the phone down is easy. No blocking, no lock screen.">
+<meta name="description" content="Short videos get slower and blurrier the longer you watch, so putting the phone down gets easy. Scroll this page to feel it.">
 <style>
-/* 60 soft lavender white, 30 deep plum + pale lavender, 10 magenta from the app icon (main button and the ghost's spinner only). */
+/* 60 soft lavender white, 30 deep plum + pale lavender, 10 magenta from the app icon (main buttons and the spinner). */
 :root {
   --bg: #FAF5FF;
   --ink: #2E1A47;
   --soft: #EDE9FE;
-  --mid: #C4B5FD;
   --card: #FFFFFF;
   --plum: #2E1A47;
+  --plum-2: #3D2660;
   --plum-ink: #FAF5FF;
   --plum-muted: #C9BDE0;
   --cta: #FF2DD0;
@@ -27,467 +27,413 @@
   color-scheme: light;
 }
 * { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 400 17px/1.7 var(--sans); overflow-x: hidden; }
-h1, h2, h3, p, ul, dl, dd { margin: 0; padding: 0; }
+html, body { height: 100%; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--plum); color: var(--ink); font: 400 17px/1.7 var(--sans); overflow: hidden; }
+html[lang="zh-Hant"] body { line-height: 1.85; }
+h1, h2, h3, p, ul, figure { margin: 0; padding: 0; }
 ul { list-style: none; }
-a { color: inherit; }
-a:focus-visible, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+a { color: inherit; text-underline-offset: 4px; }
+a:focus-visible, button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+img { display: block; max-width: 100%; height: auto; }
+button { font: inherit; color: inherit; }
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
-@media (min-width: 720px) { .wrap { padding: 0 32px; } }
+.col { max-width: 720px; margin: 0 auto; padding: 0 20px; }
 .muted { color: var(--muted); }
-.small { font-size: 14px; line-height: 1.6; }
+.small { font-size: 15px; line-height: 1.6; }
 
-.bar-in { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 64px; }
-.bar-name { font-weight: 500; white-space: nowrap; text-decoration: none; display: flex; align-items: center; gap: 10px; }
-.bar-name img { width: 32px; height: 32px; border-radius: 8px; display: block; }
-.bar-right { display: flex; align-items: center; gap: 16px; font-size: 15px; white-space: nowrap; }
-.lang {
-  font: inherit; font-size: 15px; color: inherit; cursor: pointer; background: transparent;
-  border: 1px solid var(--line-strong); border-radius: 8px; padding: 2px 12px; line-height: 1.7;
-  transition: background 140ms var(--ease), transform 140ms var(--ease);
-}
-.lang:hover { background: var(--soft); }
+/* the whole page is one feed you scroll like short videos */
+.feed { height: 100vh; height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; }
+.reel { position: relative; height: 100vh; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; background: #8B5CF6; }
+.clip { position: absolute; inset: 0; transition: filter 400ms var(--ease); }
+.clip iframe { position: absolute; left: 50%; top: 50%; width: max(100%, 177.8vh); height: max(100%, 56.25vw); transform: translate(-50%, -50%); border: 0; pointer-events: none; }
+.actor { position: absolute; left: 50%; top: 42%; width: min(46vh, 64vw); transform: translate(-50%, -50%); }
+.actor svg { display: block; width: 100%; height: auto; }
+.bounce { animation: bounce 1.1s infinite alternate; animation-timing-function: var(--ease); }
+@keyframes bounce { from { transform: translateY(6%) rotate(-5deg); } to { transform: translateY(-10%) rotate(5deg); } }
+.actor .body { fill: #FFFFFF; }
+.actor .dark { fill: var(--plum); }
+.cap { position: absolute; left: 20px; right: 20px; bottom: 208px; color: #FFFFFF; max-width: 640px; margin: 0 auto; }
+.cap b { display: block; font-weight: 500; font-size: 20px; line-height: 1.35; }
+.cap span { opacity: 0.85; font-size: 15px; }
+.load { position: absolute; inset: 0; background: var(--plum); color: var(--plum-ink); display: grid; place-items: center; align-content: center; gap: 12px; transition: opacity 200ms var(--ease); }
+.load.off { opacity: 0; pointer-events: none; }
+.load svg { width: 84px; height: 84px; animation: turn 0.9s steps(8) infinite; }
+@keyframes turn { to { transform: rotate(-360deg); } }
+.load p { font-size: 16px; color: var(--plum-muted); font-variant-numeric: tabular-nums; }
+.seg { stroke: #6B5B8C; }
+.seg.on { stroke: var(--cta); }
+
+/* first screen */
+.hello { position: absolute; left: 20px; right: 20px; top: 84px; text-align: center; color: #FFFFFF; }
+h1 { font-size: clamp(34px, 6vw, 60px); font-weight: 600; line-height: 1.08; letter-spacing: -0.03em; text-wrap: balance; }
+html[lang="zh-Hant"] h1 { line-height: 1.25; letter-spacing: 0; }
+.hello p { font-size: 18px; line-height: 1.5; max-width: 26em; margin: 12px auto 0; opacity: 0.92; }
+.reel:first-child .actor { top: 52%; width: min(34vh, 56vw); }
+.swipe { position: absolute; left: 0; right: 0; bottom: 208px; text-align: center; color: #FFFFFF; font-weight: 500; font-size: 20px; }
+.swipe svg { display: block; width: 44px; height: 44px; margin: 0 auto 4px; animation: nudge 1.2s var(--ease) infinite; }
+@keyframes nudge { 0% { transform: translateY(10px); opacity: 0.2; } 60% { transform: translateY(-8px); opacity: 1; } 100% { transform: translateY(-8px); opacity: 0; } }
+
+/* fixed layer on top of the feed */
+.top { position: fixed; left: 0; right: 0; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 60px; padding: 0 16px; color: #FFFFFF; transition: color 200ms var(--ease), background 200ms var(--ease); }
+.top.light { color: var(--ink); background: var(--bg); border-bottom: 1px solid var(--line); }
+.top a.name { font-weight: 500; white-space: nowrap; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+.top img { width: 32px; height: 32px; border-radius: 8px; }
+.top .right { display: flex; align-items: center; gap: 14px; font-size: 15px; white-space: nowrap; }
+.lang { cursor: pointer; background: transparent; border: 1px solid currentColor; border-radius: 8px; padding: 2px 12px; font-size: 15px; line-height: 1.7; transition: transform 140ms var(--ease); }
 .lang:active { transform: scale(0.96); }
+@media (max-width: 420px) { .top a.name span { display: none; } }
 
-/* hero */
-.hero { display: grid; gap: 32px; padding: 32px 0 64px; align-items: center; }
-@media (min-width: 940px) { .hero { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 56px; padding: 56px 0 88px; } }
-h1 { font-size: clamp(42px, 7vw, 76px); font-weight: 600; line-height: 1.04; letter-spacing: -0.03em; text-wrap: balance; }
-html[lang="zh-Hant"] h1 { font-size: clamp(40px, 6.4vw, 70px); line-height: 1.2; letter-spacing: 0; }
-.lede { font-size: 20px; line-height: 1.6; margin-top: 24px; max-width: 28em; color: var(--muted); }
-html[lang="zh-Hant"] .lede { line-height: 1.85; }
-.cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; margin-top: 32px; }
-.btn { position: relative; overflow: hidden; cursor: pointer; transition: transform 140ms var(--ease); }
+.hud { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; padding: 0 12px calc(12px + env(safe-area-inset-bottom)); pointer-events: none; transition: opacity 200ms var(--ease), transform 300ms var(--ease); }
+.hud.off { opacity: 0; transform: translateY(24px); }
+.hud.off * { pointer-events: none !important; }
+.panel { pointer-events: auto; max-width: 640px; margin: 0 auto; background: var(--plum); color: var(--plum-ink); border-radius: 16px; padding: 12px; display: grid; gap: 10px; }
+.say { display: flex; gap: 10px; align-items: flex-end; }
+.say svg { width: 56px; height: auto; flex: none; }
+.say .body { fill: #FFFFFF; }
+.say .dark { fill: var(--plum); }
+.say .lid { stroke: var(--plum); stroke-width: 22; stroke-linecap: round; fill: none; }
+.pupils { transform-box: fill-box; transform-origin: 50% 0; transition: transform 500ms var(--ease); }
+.bubble { background: var(--plum-ink); color: var(--ink); border-radius: 14px 14px 14px 4px; padding: 8px 12px; font-size: 16px; line-height: 1.45; flex: 1; min-height: 2.9em; }
+.meters { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; color: var(--plum-muted); padding: 0 2px; }
+.meters b { font-weight: 500; color: var(--plum-ink); font-variant-numeric: tabular-nums; display: inline-block; }
+.pop { animation: pop 420ms var(--ease); }
+@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn { position: relative; overflow: hidden; cursor: pointer; border: 0; transition: transform 140ms var(--ease); }
 .btn:active { transform: scale(0.96); }
 .btn.up { animation: up 380ms var(--ease); }
 @keyframes up { 0% { transform: scale(0.96); } 45% { transform: scale(1.04); } 100% { transform: scale(1); } }
 .rip { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: currentColor; opacity: 0.25; pointer-events: none; animation: rip 480ms var(--ease) forwards; }
 @keyframes rip { to { transform: scale(14); opacity: 0; } }
-.cta { display: inline-block; background: var(--cta); color: var(--cta-ink); font-weight: 500; font-size: 18px; text-decoration: none; padding: 14px 26px; border-radius: 8px; }
-.plain { text-underline-offset: 4px; }
+.ghostbtn { background: var(--plum-2); color: var(--plum-ink); border-radius: 8px; padding: 9px 10px; font-size: 15px; line-height: 1.35; }
+.putdown { background: var(--cta); color: var(--cta-ink); font-weight: 500; border-radius: 8px; padding: 9px 10px; font-size: 15px; line-height: 1.35; }
+.ask { display: none; background: var(--plum-2); border-radius: 12px; padding: 10px; }
+.ask.on { display: block; }
+.ask p { font-weight: 500; font-size: 15px; }
+.ask .opts { display: grid; gap: 6px; margin-top: 8px; }
+.ask .opt { background: var(--plum-ink); color: var(--ink); border-radius: 8px; padding: 8px 10px; text-align: left; font-size: 15px; line-height: 1.4; }
+.ask .left { font-size: 13px; color: var(--plum-muted); margin-top: 6px; }
 
-/* the ghost, on its own dark card like the app icon */
-.stagecard { background: var(--plum); color: var(--plum-ink); border-radius: 24px; padding: 24px 16px 20px; }
-.ghost { position: relative; width: 100%; max-width: 400px; margin: 0 auto; aspect-ratio: 860 / 790; }
-.ghost svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.ghost .body { fill: #FFFFFF; }
-.ghost .dark { fill: var(--plum); }
-.ghost .lid { stroke: var(--plum); stroke-width: 13; stroke-linecap: round; fill: none; }
-.ghost .hand { fill: #FFFFFF; stroke: var(--plum); stroke-width: 12; }
-.ghost .pupils { transform-box: fill-box; transform-origin: 50% 0; transition: transform 600ms var(--ease); }
-.ghost .phone {
-  position: absolute; left: 70.7%; top: 78.2%; width: 22.1%; aspect-ratio: 190 / 320;
-  transform: translate(-50%, -50%) rotate(20deg);
-  border: 4px solid #FFFFFF; border-radius: 14px; overflow: hidden; background: var(--plum);
-}
-canvas { display: block; width: 100%; height: 100%; }
-.seg { stroke: #6B5B8C; transition: stroke 400ms var(--ease); }
-.seg.on { stroke: var(--cta); }
-.now { text-align: center; margin-top: 8px; min-height: 3.4em; }
-.now b { display: block; font-weight: 500; font-size: 18px; }
-.now span { color: var(--plum-muted); font-size: 15px; }
-
-/* sections */
-section.blk { padding: 72px 0; border-top: 1px solid var(--line); }
-h2 { font-size: clamp(28px, 4vw, 42px); font-weight: 500; line-height: 1.15; letter-spacing: -0.02em; max-width: 17em; text-wrap: balance; }
-html[lang="zh-Hant"] h2 { letter-spacing: 0; line-height: 1.35; }
-h3 { font-size: 20px; font-weight: 500; line-height: 1.4; }
-h2 + p { margin-top: 16px; max-width: 34em; color: var(--muted); font-size: 19px; }
-
-/* three moments */
-.moments { display: grid; gap: 16px; margin-top: 40px; }
-@media (min-width: 760px) { .moments { grid-template-columns: repeat(3, 1fr); gap: 24px; } }
-.moment { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 1.25rem; display: grid; grid-template-columns: 96px 1fr; gap: 16px; align-items: center; }
-@media (min-width: 760px) { .moment { grid-template-columns: 1fr; align-items: start; } }
-.mini { width: 100%; max-width: 150px; aspect-ratio: 9 / 16; border-radius: 12px; overflow: hidden; background: var(--plum); }
-@media (min-width: 760px) { .mini { margin: 0 auto 4px; } }
-.moment p { color: var(--muted); margin-top: 4px; }
-.aside { margin-top: 24px; max-width: 40em; }
-
-/* is this you */
-.you { display: grid; gap: 12px; margin-top: 32px; max-width: 760px; }
-.you li { background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem; font-size: 19px; line-height: 1.5; }
-.turn { font-size: clamp(22px, 3vw, 30px); line-height: 1.35; font-weight: 500; letter-spacing: -0.01em; margin-top: 40px; max-width: 20em; text-wrap: balance; }
-html[lang="zh-Hant"] .turn { letter-spacing: 0; line-height: 1.55; }
-
-/* compare */
-.cmp { display: grid; gap: 16px; margin-top: 40px; }
-@media (min-width: 720px) { .cmp { grid-template-columns: 1fr 1fr; } }
-.cmp > div { padding: 1.25rem 1.5rem 1.5rem; border-radius: 12px; border: 1px solid var(--line-strong); background: var(--card); }
-.cmp > div.pick { background: var(--plum); border-color: var(--plum); color: var(--plum-ink); }
-.cmp p { margin-top: 8px; color: var(--muted); }
-.cmp .pick p { color: var(--plum-muted); }
-.pills { height: 56px; margin: 16px 0 4px; display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; align-items: end; }
-.pills i { background: currentColor; border-radius: 3px; display: block; min-height: 3px; }
-.pills i.off { opacity: 0.2; }
-.pills-cap { display: flex; justify-content: space-between; font-size: 13px; opacity: 0.7; }
-
-/* helpers */
-.roles { margin-top: 40px; display: grid; gap: 16px; }
-@media (min-width: 900px) { .roles { grid-template-columns: 1fr 1fr; align-items: start; } }
-.role { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 1.25rem 1.5rem 1.5rem; }
-.role.wide { grid-row: span 2; }
-.role > p { color: var(--muted); margin-top: 8px; }
-.role .tag { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
-.talk { margin-top: 16px; background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem 1.25rem; }
-.talk .q { font-size: 19px; line-height: 1.45; font-weight: 500; }
-.opts { display: grid; gap: 8px; margin-top: 12px; }
-.opt { font: inherit; color: var(--ink); text-align: left; background: var(--card); border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; line-height: 1.5; transition: transform 140ms var(--ease), border-color 140ms var(--ease); }
-.opt:hover { border-color: var(--ink); }
-.opt[disabled] { opacity: 0.5; cursor: default; }
-.ans { margin-top: 12px; min-height: 3.4em; }
-.talk .foot { margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line-strong); font-size: 14px; color: var(--muted); }
-.pop { display: inline-block; animation: pop 420ms var(--ease); }
-@keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.35); } 100% { transform: scale(1); } }
-.said { margin-top: 12px; background: var(--soft); border-radius: 12px; padding: 1rem 1.25rem; color: var(--ink); }
-.said span { display: block; }
-.days { display: grid; gap: 3px; margin-top: 16px; }
-.days i { display: block; height: 6px; background: var(--mid); border-radius: 3px; }
-.days i:first-child { background: var(--ink); }
-.lever { font-size: clamp(22px, 3vw, 30px); line-height: 1.35; font-weight: 500; letter-spacing: -0.01em; margin-top: 48px; max-width: 22em; text-wrap: balance; }
-html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.55; }
-
-/* evidence */
-.proof { background: var(--plum); color: var(--plum-ink); }
-.proof .wrap { padding-top: 80px; padding-bottom: 80px; }
-.proof h2 + p { color: var(--plum-muted); }
-.ev { display: grid; gap: 0; margin-top: 40px; border-top: 1px solid rgba(250, 245, 255, 0.16); }
-@media (min-width: 820px) { .ev { grid-template-columns: 1fr 1fr; column-gap: 48px; } }
-.ev li { padding: 24px 0; border-bottom: 1px solid rgba(250, 245, 255, 0.16); }
-.ev .fig { display: block; font-size: clamp(44px, 6vw, 60px); line-height: 1.1; font-weight: 500; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
-.ev p { margin-top: 8px; max-width: 28em; }
-.ev cite { display: block; font-style: normal; font-size: 14px; color: var(--plum-muted); margin-top: 8px; }
-.caveat { margin-top: 24px; max-width: 40em; color: var(--plum-muted); }
-
-.end .wrap { padding-top: 88px; padding-bottom: 48px; }
-.end h2 + p { max-width: 32em; }
-.end .small { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 4px 24px; justify-content: space-between; }
+/* after the feed: the explanation, as a normal page */
+.about { scroll-snap-align: start; background: var(--bg); min-height: 100vh; padding-top: 60px; }
+.about section { padding: 64px 0 0; }
+.verdict { padding: 56px 0 0; text-align: center; }
+.verdict p { font-size: 20px; line-height: 1.6; max-width: 28em; margin: 16px auto 0; color: var(--muted); }
+h2 { font-size: clamp(26px, 3.6vw, 36px); font-weight: 500; line-height: 1.2; letter-spacing: -0.02em; text-wrap: balance; }
+html[lang="zh-Hant"] h2 { letter-spacing: 0; line-height: 1.4; }
+h2 + p, p + p { margin-top: 16px; }
+.three { display: grid; gap: 16px; margin-top: 32px; }
+@media (min-width: 760px) { .three { grid-template-columns: repeat(3, 1fr); } }
+.three li { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 1.25rem; }
+.three b { display: block; font-weight: 500; font-size: 20px; line-height: 1.35; }
+.three span { display: block; color: var(--muted); margin-top: 6px; }
+.shots { display: grid; gap: 16px; margin-top: 32px; }
+@media (min-width: 820px) { .shots { grid-template-columns: repeat(3, 1fr); } }
+.shots figure { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 8px; }
+.shots img { border-radius: 4px; width: 100%; }
+figcaption { padding: 10px 8px 6px; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.plainlist { margin-top: 20px; border-top: 1px solid var(--line); }
+.plainlist li { padding: 14px 0; border-bottom: 1px solid var(--line); }
+.plainlist b { font-weight: 500; font-size: 22px; font-variant-numeric: tabular-nums; margin-right: 6px; }
+.plainlist cite { display: block; font-style: normal; font-size: 14px; color: var(--muted); margin-top: 2px; }
+.get { margin-top: 72px; background: var(--soft); border-radius: 24px; padding: 40px 24px; text-align: center; }
+.get p { max-width: 30em; margin: 12px auto 0; color: var(--muted); }
+.cta { display: inline-block; background: var(--cta); color: var(--cta-ink); font-weight: 500; font-size: 18px; text-decoration: none; padding: 14px 26px; border-radius: 12px; margin-top: 24px; }
+footer { padding: 32px 0 48px; }
 
 @media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .seg, .btn, .lang, .ghost .pupils { transition: none; }
-  .pop, .btn.up { animation: none; }
+  .bounce, .load svg, .pop, .btn.up, .swipe svg { animation: none; }
   .rip { display: none; }
+  .clip, .pupils, .btn, .load, .hud { transition: none; }
 }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="wrap bar-in">
-    <a class="bar-name" href="#top"><img src="icon-192.png" alt=""><span>Doomscroll Rehab</span></a>
-    <div class="bar-right">
-      <button class="lang" id="lang" type="button" aria-label="Switch language">中文</button>
-      <a href="https://github.com/Yuki66666666/doomscrolling-rehab">GitHub</a>
-    </div>
+<header class="top" id="topbar">
+  <a class="name" href="#" id="home"><img src="icon-192.png" alt=""><span>Doomscroll Rehab</span></a>
+  <div class="right">
+    <button class="lang" id="lang" type="button" aria-label="Switch language">中文</button>
+    <a href="#get" id="getlink" data-zh="下載">Get the app</a>
   </div>
 </header>
 
-<main id="top">
-<div class="wrap">
-  <section class="hero">
-    <div>
-      <h1 data-zh="終於放得下手機。">Finally put your phone down.</h1>
-      <p class="lede" data-zh="Doomscroll Rehab 讓短影音越看越慢、越看越糊。不封鎖、不鎖機，也不用跟自己的意志力打架。看到後來就是不好看了，你自然會停。">Doomscroll Rehab makes short videos slower and blurrier the longer you watch. No blocking, no lock screen, no fight with your own willpower. After a while it is just not fun anymore, and you stop.</p>
-      <div class="cta-row">
-        <a class="cta btn" href="#how" data-zh="看它怎麼運作">See how it works</a>
-        <a class="plain" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="在 GitHub 上看專案">View the project on GitHub</a>
-      </div>
-      <p class="small muted" style="margin-top:20px" data-zh="適用 Instagram Reels、TikTok、Threads、紅果。訊息、地圖和其他 App 完全不受影響。">Works on Instagram Reels, TikTok, Threads and Hongguo. Messages, maps and every other app stay normal.</p>
+<main class="feed" id="feed">
+  <!-- reels are built by the script below -->
+  <div class="about" id="about">
+    <div class="col verdict">
+      <h2 id="verdict">You made it to the end.</h2>
+      <p data-zh="這就是 Doomscroll Rehab 在做的事：不擋你、不鎖你，只是讓短影音越滑越慢、越滑越糊，直到放下手機比等下一支還輕鬆。">That is what Doomscroll Rehab does. It never blocks you or locks you out. It just makes short videos slower and blurrier the longer you scroll, until putting the phone down is easier than waiting for the next one.</p>
+      <a class="cta btn" href="#get" data-zh="我想在手機上用">I want this on my phone</a>
     </div>
-    <div class="stagecard">
-      <div class="ghost" role="img" aria-label="A ghost watching short videos on its phone. The video gets blurrier and the ghost gets sleepier the longer it watches.">
-        <svg viewBox="60 130 860 790" aria-hidden="true">
-          <path class="body" d="M96 782C96 716 172 690 198 596C244 420 330 284 482 284C640 284 728 404 758 566L792 770C800 850 706 878 566 868C474 862 420 896 334 838C292 810 250 852 190 852C132 852 96 824 96 782Z"/>
-          <path class="lid" d="M408 498H520M596 498H704"/>
-          <g class="pupils" id="pupils"><path class="dark" d="M424 506a40 40 0 0 0 80 0ZM612 506a40 40 0 0 0 80 0Z"/></g>
-          <g transform="translate(752 262)" stroke-width="30" stroke-linecap="round" id="spin"></g>
-        </svg>
-        <div class="phone"><canvas id="reel" width="190" height="320"></canvas></div>
-        <svg viewBox="60 130 860 790" aria-hidden="true">
-          <circle class="hand" cx="540" cy="812" r="74"/>
-          <circle class="hand" cx="806" cy="806" r="74"/>
-        </svg>
-      </div>
-      <p class="now"><b id="nowT">Just opened the app</b><span id="nowS">Everything looks great.</span></p>
-    </div>
-  </section>
-</div>
-
-<section class="blk" id="how">
+<section>
   <div class="wrap">
-    <h2 data-zh="它不會擋你，只會讓影片越來越不值得看。">It never stops you. It just makes the videos less worth watching.</h2>
-    <p data-zh="你照常打開 App。差別只在：你待得越久，影片就越慢、越糊。">You open your apps like always. The only difference: the longer you stay, the slower and blurrier the videos get.</p>
-    <ul class="moments">
-      <li class="moment">
-        <div class="mini"><canvas data-q="1" width="150" height="266"></canvas></div>
-        <div><h3 data-zh="剛打開">At first</h3><p data-zh="前幾分鐘一切正常。回個訊息、看一兩支影片，完全沒事。">The first few minutes are completely normal. Check a message, watch a video or two. No problem.</p></div>
-      </li>
-      <li class="moment">
-        <div class="mini"><canvas data-q="0.42" width="150" height="266"></canvas></div>
-        <div><h3 data-zh="幾分鐘後">A few minutes in</h3><p data-zh="每過一分鐘，影片就再慢一點、糊一點。你會開始覺得卡卡的。">Every minute, the videos load a little slower and look a little blurrier. It starts to feel annoying.</p></div>
-      </li>
-      <li class="moment">
-        <div class="mini"><canvas data-q="0.06" width="150" height="266"></canvas></div>
-        <div><h3 data-zh="再滑下去">Still scrolling</h3><p data-zh="現在等一支影片的時間，已經比影片本身還無聊。你把手機放下了。">Now waiting for a video is more boring than the video. You put the phone down.</p></div>
-      </li>
+    <h2 data-zh="剛剛發生了什麼事">What just happened</h2>
+    <ul class="three">
+      <li><b data-zh="沒有人擋你">Nobody stopped you</b><span data-zh="沒有鎖、沒有倒數、沒有「時間到」。你想滑多久都可以。">No lock, no countdown, no "time is up". You can scroll as long as you like.</span></li>
+      <li><b data-zh="只是越來越難看">It just got worse</b><span data-zh="每過一分鐘，影片就再慢一點、糊一點。等一支影片比影片本身還無聊。">Every minute, videos load a bit slower and look a bit blurrier. Waiting becomes more boring than the video.</span></li>
+      <li><b data-zh="是你自己放下的">You put it down yourself</b><span data-zh="離開十分鐘，一切恢復正常。訊息、地圖和其他 App 從頭到尾都沒被影響。">Leave for ten minutes and it is all back to normal. Messages, maps and other apps were never touched.</span></li>
     </ul>
-    <p class="aside muted" data-zh="離開十分鐘，一切恢復正常。這不是處罰，只是不讓你一直滑下去。">Take a ten minute break and everything is back to normal. It is not a punishment. It just will not let the scroll go on forever.</p>
   </div>
 </section>
 
-<section class="blk">
-  <div class="wrap">
-    <h2 data-zh="這是你嗎？">Does this sound like you?</h2>
-    <ul class="you">
-      <li data-zh="想說只看一支影片，抬頭已經過了四十分鐘。">You open the app for one video and look up forty minutes later.</li>
-      <li data-zh="設過螢幕使用時間上限，然後每次都按「再 15 分鐘」。">You set a screen time limit, then tap "15 more minutes" every single time.</li>
-      <li data-zh="刪過 App，然後又裝回來。">You deleted the app. Then you reinstalled it.</li>
-    </ul>
-    <p class="turn" data-zh="你缺的不是意志力。你需要的是那些影片沒那麼好看。">You do not need more willpower. You need the videos to be a little less good.</p>
-  </div>
-</section>
-
-<section class="blk">
-  <div class="wrap">
+<section>
+  <div class="col">
     <h2 data-zh="為什麼不直接封鎖就好？">Why not just block the apps?</h2>
-    <p data-zh="因為你知道怎麼關掉封鎖。">Because you know how to turn a blocker off.</p>
-    <div class="cmp">
-      <div>
-        <h3 data-zh="封鎖">Blocking</h3>
-        <div class="pills" data-pills="block" aria-hidden="true"></div>
-        <div class="pills-cap" aria-hidden="true"><span data-zh="好看">fun</span><span data-zh="被擋住">blocked</span></div>
-        <p data-zh="一道牆突然擋在你面前。你覺得被管，於是把它關掉，回到原點。">A wall suddenly appears. It feels like being told off, so you switch it off and you are back where you started.</p>
-      </div>
-      <div class="pick">
-        <h3 data-zh="慢慢變慢">Slowing down</h3>
-        <div class="pills" data-pills="slow" aria-hidden="true"></div>
-        <div class="pills-cap" aria-hidden="true"><span data-zh="好看">fun</span><span data-zh="不值得等">not worth the wait</span></div>
-        <p data-zh="沒有人擋你，沒有東西可以吵。影片只是慢慢變得不值得等。最後是你自己決定停的。">Nobody stops you and there is nothing to argue with. The videos just slowly stop being worth the wait. Stopping is your own decision.</p>
-      </div>
+    <p data-zh="因為你知道怎麼關掉封鎖。時間到了按「再 15 分鐘」，App 刪了過幾天又裝回來。被擋住的感覺像被管，所以最後被關掉的都是封鎖工具。">Because you know how to turn a blocker off. The limit comes up and you tap "15 more minutes". You delete the app and reinstall it a few days later. Being stopped feels like being told off, so the blocker is what gets switched off.</p>
+    <p data-zh="變慢不一樣。沒有東西可以吵，影片只是慢慢變得不值得等。而且它每天只收緊一點點：第一天有十分鐘正常速度，到第十四天大約剩四分鐘。">Slowing is different. There is nothing to argue with; the videos just stop being worth the wait. And it only tightens a little each day: ten minutes of normal speed on day one, about four by day fourteen.</p>
+    <p data-zh="真的有正事的時候，跟裡面的 AI 說你要做什麼、做完就停，它就還你幾分鐘。它不會唸你。事後它會把你說的和你做的擺在一起，不打分數。">When you really do have a reason, tell the AI inside what you want to do and when you will stop, and it gives you a few minutes back. It never lectures. Afterwards it shows you what you said next to what you did, with no score.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2 data-zh="真正的 App 長這樣">What the real thing looks like</h2>
+    <div class="shots">
+      <figure><img src="shot-full.png" width="492" height="380" alt="Screenshot: feed speed Full, one minute into the session." loading="lazy"><figcaption data-zh="前十分鐘：全速，什麼都沒變。">First ten minutes: full speed, nothing changes.</figcaption></figure>
+      <figure><img src="shot-slow.png" width="492" height="380" alt="Screenshot: feed speed 298 kbps, eighteen minutes into the session." loading="lazy"><figcaption data-zh="第十八分鐘：速度一路往下掉。">Minute eighteen: speed is on its way down.</figcaption></figure>
+      <figure><img src="shot-floor.png" width="492" height="380" alt="Screenshot: feed speed 40 kbps, thirty minutes in, three second wait before each video." loading="lazy"><figcaption data-zh="半小時：幾乎載不動，每支要等三秒。">Half an hour: barely loading, three seconds of waiting per video.</figcaption></figure>
     </div>
   </div>
 </section>
 
-<section class="blk">
-  <div class="wrap">
-    <h2 data-zh="有一個 AI 陪你，不是管你。">An AI that is on your side, not on your case.</h2>
-    <p data-zh="它做三件事：照你的習慣調整、在你真的需要時放行、事後老實告訴你發生了什麼。">It does three things: fits the plan to your habits, lets you through when you really need it, and tells you honestly what happened afterwards.</p>
-    <div class="roles">
-      <div class="role wide">
-        <h3 data-zh="真的需要時，開口就好">When you really need it, just ask</h3>
-        <span class="tag" data-zh="協商員 Negotiator">Negotiator</span>
-        <p data-zh="要查東西、要回朋友傳的影片？跟它說你要做什麼、做完就停。理由具體，就還你最多 10 分鐘的正常速度，一天三次。它不會唸你。試試看：">Need to look something up, or watch what a friend sent? Tell it what you want to do and when you will stop. A real reason gets you up to 10 minutes of normal speed, three times a day. It never lectures. Try it:</p>
-        <div class="talk">
-          <p class="q" data-zh="接下來幾分鐘，你想做什麼？">What do you want from the next few minutes?</p>
-          <div class="opts">
-            <button class="opt btn" type="button" data-kind="vague" data-zh="我就是想繼續滑。">I just want to keep scrolling.</button>
-            <button class="opt btn" type="button" data-kind="clear" data-zh="找到我姊傳的水餃食譜，存起來就停。">Find the dumpling recipe my sister sent, and stop once it is saved.</button>
-          </div>
-          <p class="ans" id="ans" aria-live="polite"></p>
-          <p class="foot"><span data-zh="今天還能要回速度：">Speed-ups left today: </span><span id="left">3</span></p>
-        </div>
-      </div>
-      <div class="role">
-        <h3 data-zh="照你的習慣來">It fits your habits</h3>
-        <span class="tag" data-zh="教練 Coach">Coach</span>
-        <p data-zh="用你自己的話告訴它你平常怎麼滑。它決定要多溫和或多嚴格，然後每天收緊一點點，連續 14 天。到第 14 天，正常速度的時間不到一開始的一半。">Tell it how you scroll, in your own words. It decides how gentle or strict to be, then tightens a little every day for 14 days. By day 14 your normal-speed time is less than half of where you started.</p>
-        <div class="days" id="days" aria-hidden="true"></div>
-      </div>
-      <div class="role">
-        <h3 data-zh="老實的回顧，不打分數">An honest look back, no score</h3>
-        <span class="tag" data-zh="報告 Report">Report</span>
-        <p data-zh="把你說要做的，和你後來真的做的，擺在一起給你看。">It puts what you said you would do next to what you actually did.</p>
-        <p class="said"><span data-zh="你說：找到食譜，存起來就停。">You said: find the recipe and stop once it is saved.</span><span data-zh="你做了：兩分鐘就存好，然後又多看了九分鐘。">You did: saved it in two minutes, then kept watching for nine more.</span></p>
-      </div>
-    </div>
-    <p class="lever" data-zh="每家科技公司都知道，影片慢一點，人就滑得少一點。我們把這個開關交到你手上。">Every tech company knows a slower feed means less scrolling. We put that switch in your hands.</p>
-  </div>
-</section>
-
-<section class="proof" id="evidence">
-  <div class="wrap">
-    <h2 data-zh="讓東西慢一點，真的有用嗎？">Does making things slower really work?</h2>
-    <p data-zh="研究說：小小的等待就足以改變習慣。直接把網路調慢這件事還沒有人研究過，這個 App 就是在做這個實驗。">Research says small waits are enough to change habits. Slowing the connection itself has not been studied yet. This app is that experiment.</p>
-    <ul class="ev">
-      <li>
-        <span class="fig">36%</span>
-        <p data-zh="打開 App 前只要多等一下，人們就放棄了 36% 的開啟。六週後，想打開的次數少了 37%。光是等待就有效，勸導的話沒有用。">of the time, people gave up opening an app when they had to wait a moment first. After six weeks they tried 37% less often. The wait alone worked. The motivational message did not.</p>
-        <cite>Grüning, Riedel, Lorenz-Spreen. PNAS, 2023.</cite>
-      </li>
-      <li>
-        <span class="fig">31%</span>
-        <p data-zh="社群媒體的使用量中，有 31% 被歸因於自制力問題。">of social media use is attributed to self-control problems.</p>
-        <cite>Allcott, Gentzkow, Song. American Economic Review, 2022.</cite>
-      </li>
-      <li>
-        <span class="fig" data-zh="45 分鐘">45 min</span>
-        <p data-zh="每天少用一小時的人，四個月後每天仍少用 45 分鐘；整整戒掉一週的人，少 38 分鐘。少用一點，至少和完全戒掉一樣持久。">less phone time per day, four months later, for people who cut back by one hour a day. People who quit completely for a week: 38 minutes less. Cutting back lasted at least as well as quitting.</p>
-        <cite>Brailovskaia et al. Journal of Experimental Psychology: Applied, 2022. N=619.</cite>
-      </li>
-      <li>
-        <span class="fig">0.2–0.6%</span>
-        <p data-zh="Google 把搜尋結果延遲 0.1 到 0.4 秒，每個人的搜尋次數就少了 0.2% 到 0.6%。連這麼小的延遲都有影響。">fewer searches per person when Google delayed results by 0.1 to 0.4 seconds. Even a delay that small changes behaviour.</p>
-        <cite>Brutlag. Google, 2009.</cite>
-      </li>
+<section>
+  <div class="col">
+    <h2 data-zh="這招真的有用嗎？">Does this actually work?</h2>
+    <p data-zh="直接把網路調慢還沒有人研究過，我們就是在試這個。但最接近的研究是這樣說的：">Nobody has studied slowing the connection itself yet; that is what we are trying. But this is what the closest research says:</p>
+    <ul class="plainlist">
+      <li><b>36%</b><span data-zh="打開 App 前只要多等一下，人們就有 36% 的次數直接放棄；六週後想打開的次數少了 37%。有效的是等待，不是勸導。">of the time, people gave up opening an app when they had to wait a moment first. After six weeks they tried 37% less often. The wait worked. The pep talk did not.</span><cite>Grüning, Riedel, Lorenz-Spreen. PNAS, 2023.</cite></li>
+      <li><b data-zh="45 分鐘">45 min</b><span data-zh="每天少用一小時的人，四個月後每天仍少用 45 分鐘；整整戒一週的人是 38 分鐘。少用一點，至少和戒掉一樣持久。">less phone time per day, four months later, for people who cut back an hour a day. People who quit for a whole week: 38 minutes. Cutting back lasted at least as well as quitting.</span><cite>Brailovskaia et al. Journal of Experimental Psychology: Applied, 2022. N=619.</cite></li>
+      <li><b>31%</b><span data-zh="的社群媒體使用量，被歸因於自制力問題。">of social media use is attributed to self-control problems.</span><cite>Allcott, Gentzkow, Song. American Economic Review, 2022.</cite></li>
+      <li><b>0.2–0.6%</b><span data-zh="Google 把搜尋結果延遲 0.1 到 0.4 秒，每個人的搜尋次數就少了這麼多。平台早就知道慢一點人就用得少，我們只是把這個開關交給你。">fewer searches per person when Google delayed results by 0.1 to 0.4 seconds. Platforms have always known slower means less use. We just hand that switch to you.</span><cite>Brutlag. Google, 2009.</cite></li>
     </ul>
   </div>
 </section>
 
-<footer class="end">
-  <div class="wrap">
-    <h2 data-zh="不用戒掉，只要比較容易停下來。">You do not have to quit. It just gets easier to stop.</h2>
-    <p class="muted" style="margin-top:16px;font-size:19px" data-zh="Doomscroll Rehab 目前是可以實際運作的原型，程式碼全部公開。">Doomscroll Rehab is a working prototype for now, and all of the code is open.</p>
-    <div class="cta-row">
-      <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="在 GitHub 上看專案">View the project on GitHub</a>
-      <a class="plain" href="#top" data-zh="回到最上面">Back to the top</a>
-    </div>
-    <p class="small muted"><span data-zh="在台北的 c0mpiled-18（YC Startup School Hackathon）做出來的。底層做法：前幾分鐘全速，之後每分鐘把短影音的連線從 3 Mbps 一路降到 40 kbps。">Built at c0mpiled-18, the YC Startup School Hackathon in Taipei. Under the hood: full speed for the first few minutes, then the connection to short-video apps steps down each minute from 3 Mbps to 40 kbps.</span></p>
+<div class="wrap">
+  <div class="get" id="get">
+    <h2 data-zh="想在自己的手機上試試？">Want this on your own phone?</h2>
+    <p data-zh="目前是 Android 版，免費、開放原始碼。還沒上架商店，安裝方式在 GitHub 上。目前只用 Instagram 實測過，還沒有 iPhone 版。">It is on Android for now, free and open source. It is not in an app store yet; setup steps are on GitHub. So far it has only been tested with Instagram, and there is no iPhone version.</p>
+    <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="到 GitHub 取得 App">Get the app on GitHub</a>
   </div>
-</footer>
+  <footer class="small muted"><span data-zh="在台北的 c0mpiled-18（YC Startup School Hackathon）做出來的。App 只看得到連線的網域名稱，看不到你在看什麼；你打給 AI 的話會送到語言模型。">Built at c0mpiled-18, the YC Startup School Hackathon in Taipei. The app only sees the names of sites being contacted, never what you watch. What you type to the AI is sent to a language model.</span></footer>
+</div>
+  </div>
 </main>
+
+<div class="hud" id="hud">
+  <div class="panel">
+    <div class="say">
+      <svg viewBox="120 220 800 430" aria-hidden="true">
+        <path class="body" d="M170 650V560C170 380 310 250 512 250C714 250 854 380 854 560V650Z"/>
+        <path class="lid" d="M318 500H470M554 500H706"/>
+        <g class="pupils" id="pupils"><path class="dark" d="M338 512a56 56 0 0 0 112 0ZM574 512a56 56 0 0 0 112 0Z"/></g>
+      </svg>
+      <p class="bubble" id="bubble" aria-live="polite"></p>
+    </div>
+    <div class="meters">
+      <span><span data-zh="第">Video </span><b id="mN">1</b><span data-zh=" 支"></span></span>
+      <span><span data-zh="這支等了 ">waited </span><b id="mW">0.0 s</b></span>
+      <span><span data-zh="畫質 ">picture: </span><b id="mQ">HD</b></span>
+    </div>
+    <div class="ask" id="ask">
+      <p data-zh="AI 問你：接下來幾分鐘，你想做什麼？">The AI asks: what do you want from the next few minutes?</p>
+      <div class="opts">
+        <button class="opt btn" type="button" data-kind="vague" data-zh="我就是想繼續滑。">I just want to keep scrolling.</button>
+        <button class="opt btn" type="button" data-kind="clear" data-zh="找到我姊傳的水餃食譜，存起來就停。">Find the dumpling recipe my sister sent, and stop once it is saved.</button>
+      </div>
+      <p class="left"><span data-zh="今天還能要回：">Left today: </span><span id="left">3</span></p>
+    </div>
+    <div class="acts">
+      <button class="ghostbtn btn" id="askBtn" type="button" data-zh="我有正事，還我速度">I have a real reason, speed it up</button>
+      <button class="putdown btn" id="down" type="button" data-zh="算了，放下手機">Fine, I will put it down</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var NS = 'http://www.w3.org/2000/svg';
+  var online = /^https?:$/.test(location.protocol);
+  function $(id) { return document.getElementById(id); }
 
-  // ---- language -------------------------------------------------------
+  // what plays in each reel: six ghost clips, plus one very famous music video in the middle
+  var ORDER = [0, 1, 2, 'rick', 3, 4, 5, 1];
+  var BG = ['#8B5CF6', '#6D43D8', '#4C2A9E', '#7C3AED', '#5B34C4', '#9A6BFF'];
+  var PROPS = [
+    '<circle cx="330" cy="300" r="46" fill="#2E1A47"/><rect x="300" y="218" width="16" height="60" rx="8" fill="#2E1A47" transform="rotate(30 308 248)"/><circle cx="330" cy="300" r="22" fill="#FFD23F"/>',
+    '<path d="M136 90L166 30L196 90ZM206 90L236 30L266 90Z" fill="#2E1A47"/>',
+    '<circle cx="70" cy="120" r="20" fill="#FF2DD0"/><rect x="84" y="50" width="10" height="74" fill="#FF2DD0"/><circle cx="340" cy="150" r="16" fill="#FF2DD0"/><rect x="350" y="92" width="8" height="60" fill="#FF2DD0"/>',
+    '<rect x="120" y="170" width="160" height="56" rx="28" fill="#2E1A47"/>',
+    '<path d="M200 0L214 36L252 38L222 62L232 100L200 78L168 100L178 62L148 38L186 36Z" fill="#FFD23F"/>',
+    '<ellipse cx="200" cy="268" rx="26" ry="34" fill="#2E1A47"/>'
+  ];
+  var CLIPS = {
+    en: [['Ghost learns to cook, part 12', '@boo.kitchen'], ['My cat can see me', '@nine.lives'], ['Haunted house dance challenge', '@spooky.moves'], ['Trying sunglasses for the first time', '@ghost.fits'], ['I got a gold star at work', '@afterlife.vlog'], ['Scream reaction compilation', '@boo.tube']],
+    zh: [['幽靈學做菜 第 12 集', '@boo.kitchen'], ['我家的貓看得到我', '@nine.lives'], ['鬼屋舞蹈挑戰', '@spooky.moves'], ['第一次戴墨鏡', '@ghost.fits'], ['我上班拿到一顆星星', '@afterlife.vlog'], ['尖叫反應合輯', '@boo.tube']]
+  };
   var STR = {
     en: {
-      title: 'Doomscroll Rehab: finally put your phone down',
-      vague: 'That is honest, but it is not really a reason, and it has no end. Videos stay slow for now.',
-      clear: 'That is specific, and it has an end. Normal speed is back for a few minutes.',
-      last: 'Normal speed is back. That was your third one today, so that is it until tomorrow.',
-      stages: [
-        ['Just opened the app', 'Everything looks great.'],
-        ['A few minutes in', 'Getting slower. A bit blurry.'],
-        ['Still scrolling', 'Barely loading. Eyelids heavy.'],
-        ['Not worth it anymore', 'Time to put the phone down.']
-      ],
-      other: '中文'
+      title: 'Doomscroll Rehab: how far can you scroll?', other: '中文', loading: 'Loading',
+      h1: 'How far can you scroll?', sub: 'This page works like our app. Scroll it like you scroll short videos and see what happens.', swipe: 'Scroll down',
+      rick: ['You scrolled right into it', 'A classic. Playing from YouTube.'], rickOff: ['The most famous music video of 1987', 'Needs an internet connection to play.'],
+      q: ['HD', 'HD', 'HD', 'soft', 'blurry', 'blurry', 'mush', 'soup'],
+      say: ['Go on. Scroll down, like you always do.', 'Ha. One more.', 'Okay, last one. Probably.', 'Hm. Did that take a bit longer?', 'It is getting kind of blurry.', 'Why is it so slow. I am still watching though.', 'Honestly the spinner is the best part now.', 'I could just… go to sleep.'],
+      vague: 'The AI says: that is honest, but it is not a reason and it has no end. Still slow.',
+      clear: 'The AI says: specific, and it ends. Full speed is back. Go find that recipe.',
+      last: 'Full speed is back. That was the third time today, so that is it until tomorrow.',
+      none: 'No more speed-ups today. Tomorrow.',
+      verdict: function (n) { return n >= 8 ? 'You scrolled all ' + n + ' videos. Nobody stopped you.' : 'You put it down after ' + n + (n === 1 ? ' video.' : ' videos.') + ' Nobody had to stop you.'; }
     },
     zh: {
-      title: 'Doomscroll Rehab：終於放得下手機',
-      vague: '很誠實，但這不算理由，也沒有終點。影片先維持慢的。',
-      clear: '夠具體，也有終點。先還你幾分鐘正常速度。',
-      last: '還你正常速度。這是今天第三次，明天之前沒有了。',
-      stages: [
-        ['剛打開 App', '一切都很順。'],
-        ['滑了幾分鐘', '開始變慢，有點糊。'],
-        ['還在滑', '快載不動了，眼皮也重了。'],
-        ['不值得再等了', '該把手機放下了。']
-      ],
-      other: 'EN'
+      title: 'Doomscroll Rehab：你能滑多遠？', other: 'EN', loading: '載入中',
+      h1: '你能滑多遠？', sub: '這一頁跟我們的 App 一樣。像平常滑短影音那樣往下滑，看看會發生什麼事。', swipe: '往下滑',
+      rick: ['你被瑞克搖了', '經典。從 YouTube 播放。'], rickOff: ['1987 年最有名的那支 MV', '需要連上網路才能播。'],
+      q: ['HD', 'HD', 'HD', '有點糊', '糊', '糊', '很糊', '一團'],
+      say: ['來，像平常那樣往下滑。', '哈，再一支。', '好，最後一支。應該吧。', '嗯？剛剛是不是等比較久？', '畫面開始有點糊了。', '怎麼這麼慢。但我還在看。', '老實說，現在轉圈比影片好看。', '我乾脆去睡覺好了。'],
+      vague: 'AI 說：很誠實，但這不算理由，也沒有終點。還是慢的。',
+      clear: 'AI 說：夠具體，也有終點。還你全速，去找食譜吧。',
+      last: '還你全速。這是今天第三次，明天之前沒有了。',
+      none: '今天不能再要回速度了，明天吧。',
+      verdict: function (n) { return n >= 8 ? '你把 ' + n + ' 支全滑完了，沒有人擋你。' : '你滑了 ' + n + ' 支就放下了，沒有人需要擋你。'; }
     }
   };
+
+  // ---- build the reels ---------------------------------------------------
+  var feed = $('feed'), about = $('about'), reels = [];
+  var SPIN = '';
+  for (var i0 = 0; i0 < 8; i0++) {
+    var ang = (-90 - i0 * 45) * Math.PI / 180;
+    SPIN += '<line x1="' + (52 * Math.cos(ang)).toFixed(1) + '" y1="' + (52 * Math.sin(ang)).toFixed(1) + '" x2="' + (104 * Math.cos(ang)).toFixed(1) + '" y2="' + (104 * Math.sin(ang)).toFixed(1) + '" stroke-width="30" stroke-linecap="round" class="' + (i0 < 4 ? 'seg on' : 'seg') + '"/>';
+  }
+  function ghost(k) {
+    return '<div class="actor"><div class="bounce"><svg viewBox="0 0 400 400" aria-hidden="true">' +
+      '<path class="body" d="M80 360V230C80 130 132 70 200 70C268 70 320 130 320 230V360L280 330L240 360L200 330L160 360L120 330Z"/>' +
+      '<circle class="dark" cx="160" cy="200" r="18"/><circle class="dark" cx="240" cy="200" r="18"/>' + PROPS[k] + '</svg></div></div>';
+  }
+  for (var r = 0; r < ORDER.length; r++) {
+    var k = ORDER[r], el = document.createElement('section');
+    el.className = 'reel';
+    el.style.background = k === 'rick' ? '#2E1A47' : BG[k];
+    el.innerHTML = '<div class="clip">' + (k === 'rick' ? ghost(2) : ghost(k)) + '</div>' +
+      (r === 0 ? '<div class="hello"><h1></h1><p></p></div><div class="swipe"><svg viewBox="0 0 44 44" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 26L22 14L34 26"/></svg><span></span></div>' : '<div class="cap"><b></b><span></span></div>') +
+      '<div class="load' + (r === 0 ? ' off' : '') + '"><svg viewBox="-130 -130 260 260" aria-hidden="true">' + SPIN + '</svg><p></p></div>';
+    feed.insertBefore(el, about);
+    reels.push(el);
+  }
+
+  // ---- state ---------------------------------------------------------------
   var lang = 'en';
   try { if (localStorage.getItem('dr-lang') === 'zh') lang = 'zh'; } catch (e) {}
   var nodes = document.querySelectorAll('[data-zh]');
   for (var a = 0; a < nodes.length; a++) nodes[a].setAttribute('data-en', nodes[a].textContent);
-  var langBtn = document.getElementById('lang');
-  var ans = document.getElementById('ans'), ansKey = '';
-  var nowT = document.getElementById('nowT'), nowS = document.getElementById('nowS'), stage = 0;
-  function showStage() { nowT.textContent = STR[lang].stages[stage][0]; nowS.textContent = STR[lang].stages[stage][1]; }
-  function applyLang() {
+  var cur = 0, seen = 0, base = 0, boosts = 3, note = '', lastWait = 0, inAbout = false;
+  var bubble = $('bubble'), pupils = $('pupils'), ask = $('ask'), hud = $('hud'), topbar = $('topbar');
+
+  function lvl(i) { return Math.max(0, Math.min(7, i - base)); }       // how far gone reel i is
+  function wait(v) { return v < 3 ? 200 : Math.min(3000, 200 + (v - 2) * 520); }
+  function blur(v) { return v < 3 ? 0 : Math.min(7, (v - 2) * 1.3); }
+  function styleReel(i) {
+    var v = lvl(i), c = reels[i].querySelector('.clip'), b = reels[i].querySelector('.bounce');
+    c.style.filter = blur(v) ? 'blur(' + blur(v).toFixed(1) + 'px)' : 'none';
+    if (b) b.style.animationTimingFunction = v < 3 ? '' : 'steps(' + Math.max(2, 9 - v) + ')';
+  }
+  function render() {
+    var S = STR[lang], v = lvl(cur);
     document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
     for (var i = 0; i < nodes.length; i++) nodes[i].textContent = nodes[i].getAttribute(lang === 'zh' ? 'data-zh' : 'data-en');
-    document.title = STR[lang].title;
-    langBtn.textContent = STR[lang].other;
-    ans.textContent = ansKey ? STR[lang][ansKey] : '';
-    showStage();
+    document.title = S.title; $('lang').textContent = S.other;
+    reels[0].querySelector('h1').textContent = S.h1;
+    reels[0].querySelector('.hello p').textContent = S.sub;
+    reels[0].querySelector('.swipe span').textContent = S.swipe;
+    for (var r = 0; r < reels.length; r++) {
+      var k = ORDER[r], t = k === 'rick' ? (online ? S.rick : S.rickOff) : CLIPS[lang][k];
+      if (r > 0) { reels[r].querySelector('.cap b').textContent = t[0]; reels[r].querySelector('.cap span').textContent = t[1]; }
+      reels[r].querySelector('.load p').textContent = S.loading + '  ' + (wait(lvl(r)) / 1000).toFixed(1) + ' s';
+    }
+    $('mN').textContent = cur + 1; $('mW').textContent = (lastWait / 1000).toFixed(1) + ' s'; $('mQ').textContent = S.q[v];
+    pupils.style.transform = 'scaleY(' + Math.max(0.1, 1 - v * 0.125).toFixed(2) + ')';
+    bubble.textContent = note ? S[note] : S.say[v];
+    $('left').textContent = boosts;
+    $('verdict').textContent = S.verdict(seen + 1);
   }
-  langBtn.addEventListener('click', function () {
+  function pop(el) { if (reduce) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
+
+  function rickroll(el) {
+    if (!online || el.querySelector('iframe')) return;
+    var f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&playsinline=1&loop=1&playlist=dQw4w9WgXcQ&modestbranding=1&rel=0';
+    f.allow = 'autoplay; encrypted-media'; f.title = 'Rick Astley, Never Gonna Give You Up (official video, YouTube)'; f.tabIndex = -1;
+    var c = el.querySelector('.clip'); c.innerHTML = ''; c.appendChild(f);
+  }
+
+  var leaving = false;
+  function arrive(i) {
+    if (i === cur || leaving) return;
+    cur = i; note = ''; ask.classList.remove('on');
+    var load = reels[i].querySelector('.load');
+    styleReel(i);
+    if (ORDER[i] === 'rick') rickroll(reels[i]);
+    if (i > seen) {                       // a video you have not seen yet has to load, and loading keeps getting slower
+      seen = i; lastWait = wait(lvl(i));
+      setTimeout(function () { load.classList.add('off'); }, lastWait);
+      render(); pop($('mN')); pop($('mW'));
+    } else { load.classList.add('off'); render(); }
+  }
+
+  var io = new IntersectionObserver(function (es) {
+    for (var e = 0; e < es.length; e++) {
+      var t = es[e].target;
+      if (es[e].isIntersecting) arrive(reels.indexOf(t));
+    }
+  }, { root: feed, threshold: [0.6] });
+  for (var q = 0; q < reels.length; q++) io.observe(reels[q]);
+  function checkAbout() {
+    var now = about.getBoundingClientRect().top < window.innerHeight * 0.5;
+    if (now === inAbout) return;
+    inAbout = now;
+    if (inAbout) leaving = false;
+    hud.classList.toggle('off', inAbout); topbar.classList.toggle('light', inAbout);
+    if (inAbout) render();
+  }
+  feed.addEventListener('scroll', checkAbout, { passive: true });
+
+  // ---- controls ------------------------------------------------------------
+  function go(el) { el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' }); }
+  $('down').addEventListener('click', function () { leaving = true; go(about); });
+  $('home').addEventListener('click', function (e) { e.preventDefault(); go(reels[0]); });
+  var links = document.querySelectorAll('a[href="#get"]');
+  for (var g = 0; g < links.length; g++) links[g].addEventListener('click', function (e) { e.preventDefault(); go($('get')); });
+  $('askBtn').addEventListener('click', function () {
+    if (boosts <= 0) { note = 'none'; render(); return; }
+    ask.classList.toggle('on');
+  });
+  var opts = document.querySelectorAll('.opt');
+  for (var j = 0; j < opts.length; j++) {
+    opts[j].addEventListener('click', function () {
+      if (this.getAttribute('data-kind') === 'vague') { note = 'vague'; render(); return; }
+      if (boosts <= 0) return;
+      boosts -= 1; base = cur;                 // this video and the next few are fast again
+      for (var i = cur; i < reels.length; i++) styleReel(i);
+      note = boosts > 0 ? 'clear' : 'last';
+      ask.classList.remove('on'); render();
+      pop($('left')); pop($('mQ'));
+    });
+  }
+  $('lang').addEventListener('click', function () {
     lang = lang === 'zh' ? 'en' : 'zh';
     try { localStorage.setItem('dr-lang', lang); } catch (e) {}
-    applyLang();
+    render();
   });
 
-  // ---- the little video everyone is watching ------------------------------
-  function hill(c, base, amp, freq, phase, color) {
-    c.fillStyle = color; c.beginPath(); c.moveTo(0, 480);
-    for (var x = 0; x <= 270; x += 6) c.lineTo(x, base + Math.sin(x * freq + phase) * amp);
-    c.lineTo(270, 480); c.closePath(); c.fill();
-  }
-  function scene(c, t) {
-    c.fillStyle = '#8B5CF6'; c.fillRect(0, 0, 270, 480);
-    c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(190, 110, 46, 0, 6.2832); c.fill();
-    var cx = (t * 18) % 360 - 80;
-    c.fillStyle = '#EDE9FE'; c.fillRect(cx, 190, 70, 16);
-    hill(c, 300, 30, 0.022, t * 0.6, '#6D43D8');
-    hill(c, 356, 24, 0.031, t * 1.2 + 1, '#4C2A9E');
-    hill(c, 420, 14, 0.04, t * 2.4 + 2, '#2E1A47');
-    var by = 380 - Math.abs(Math.sin(t * 3.2)) * 150;
-    c.fillStyle = '#FF2DD0'; c.beginPath(); c.arc(100, by, 30, 0, 6.2832); c.fill();
-  }
-  var off = document.createElement('canvas'), octx = off.getContext('2d');
-  // q is quality from 1 (sharp) to 0 (unwatchable); low q is drawn tiny and scaled up, so it looks blocky
-  function paint(cv, q, t) {
-    var ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
-    var scale = 0.04 + 0.96 * Math.pow(q, 1.7);
-    var lw = Math.max(4, Math.round(W * scale)), lh = Math.max(7, Math.round(H * scale));
-    off.width = lw; off.height = lh;
-    octx.setTransform(lw / 270, 0, 0, lh / 480, 0, 0);
-    scene(octx, t);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(off, 0, 0, W, H);
-  }
-  function fit(cv) {
-    var r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-    var w = Math.max(60, Math.round(r.width * dpr)), h = Math.round(w * cv.height / cv.width);
-    if (cv.width !== w) { cv.width = w; cv.height = h; }
-  }
-  var minis = document.querySelectorAll('canvas[data-q]');
-  function paintMinis() { for (var i = 0; i < minis.length; i++) { fit(minis[i]); paint(minis[i], parseFloat(minis[i].getAttribute('data-q')), 1.3); } }
-
-  // ---- hero: one session, played on a loop --------------------------------
-  var segs = [], spin = document.getElementById('spin');
-  for (var i0 = 0; i0 < 8; i0++) {
-    var ang = (-90 - i0 * 45) * Math.PI / 180, l = document.createElementNS(NS, 'line');
-    l.setAttribute('x1', (52 * Math.cos(ang)).toFixed(1)); l.setAttribute('y1', (52 * Math.sin(ang)).toFixed(1));
-    l.setAttribute('x2', (104 * Math.cos(ang)).toFixed(1)); l.setAttribute('y2', (104 * Math.sin(ang)).toFixed(1));
-    l.setAttribute('class', 'seg on'); spin.appendChild(l); segs.push(l);
-  }
-  var pupils = document.getElementById('pupils');
-  var reel = document.getElementById('reel');
-  var Q = [1, 0.5, 0.16, 0.02], HOLD = 3200, boostUntil = 0;
-  var lastDraw = -1e9, tt = 0, shownQ = -1, start = null;
-  function setStage(n) {
-    stage = n; showStage();
-    var q = Q[n], lit = n === 3 ? 0 : Math.max(1, Math.round(q * 8));
-    for (var i = 0; i < 8; i++) segs[i].setAttribute('class', i < lit ? 'seg on' : 'seg');
-    pupils.style.transform = 'scaleY(' + (0.12 + 0.88 * q).toFixed(2) + ')';
-  }
-  function frame(now) {
-    if (start === null) start = now;
-    var n = now < boostUntil ? 0 : Math.floor(((now - start) / HOLD) % 4);
-    if (n !== stage) setStage(n);
-    var q = Q[stage], fps = q < 0.05 ? 0.5 : 3 + 57 * q;
-    if (now - lastDraw >= 1000 / fps || q !== shownQ) { tt = now / 1000; lastDraw = now; shownQ = q; paint(reel, q, tt); }
-    window.requestAnimationFrame(frame);
-  }
-
-  // ---- small drawings ------------------------------------------------------
-  var days = document.getElementById('days');
-  for (var n = 0; n < 14; n++) { var b = document.createElement('i'); b.style.width = (Math.pow(0.93, n) * 100).toFixed(1) + '%'; days.appendChild(b); }
-  var pills = document.querySelectorAll('[data-pills]');
-  for (var pi = 0; pi < pills.length; pi++) {
-    var slow = pills[pi].getAttribute('data-pills') === 'slow', html = '';
-    for (var c = 0; c < 24; c++) {
-      var h = slow ? (c < 7 ? 100 : Math.max(7, 100 * Math.pow(0.07, Math.min(1, (c - 6) / 13)))) : (c < 12 ? 100 : 0);
-      html += '<i' + (h === 0 ? ' class="off"' : '') + ' style="height:' + h.toFixed(0) + '%"></i>';
-    }
-    pills[pi].innerHTML = html;
-  }
-
-  // ---- button feel: press, overshoot, ripple -------------------------------
+  // press, overshoot, ripple on every button
   var btns = document.querySelectorAll('.btn');
   for (var bi = 0; bi < btns.length; bi++) {
     btns[bi].addEventListener('pointerdown', function (e) {
       if (this.disabled || reduce) return;
-      var r = this.getBoundingClientRect(), sp = document.createElement('span');
-      sp.className = 'rip'; sp.style.left = (e.clientX - r.left) + 'px'; sp.style.top = (e.clientY - r.top) + 'px';
+      var rc = this.getBoundingClientRect(), sp = document.createElement('span');
+      sp.className = 'rip'; sp.style.left = (e.clientX - rc.left) + 'px'; sp.style.top = (e.clientY - rc.top) + 'px';
       this.appendChild(sp);
       setTimeout(function () { if (sp.parentNode) sp.parentNode.removeChild(sp); }, 520);
     });
@@ -497,29 +443,7 @@ html[lang="zh-Hant"] .lever { letter-spacing: 0; line-height: 1.55; }
     });
   }
 
-  // ---- negotiator -------------------------------------------------------------
-  var left = document.getElementById('left'), boosts = 3;
-  var opts = document.querySelectorAll('.opt');
-  for (var k = 0; k < opts.length; k++) {
-    opts[k].addEventListener('click', function () {
-      if (this.getAttribute('data-kind') === 'vague') { ansKey = 'vague'; ans.textContent = STR[lang].vague; return; }
-      if (boosts <= 0) return;
-      boosts -= 1;
-      left.textContent = String(boosts);
-      if (!reduce) { left.classList.remove('pop'); void left.offsetWidth; left.classList.add('pop'); }
-      ansKey = boosts > 0 ? 'clear' : 'last';
-      ans.textContent = STR[lang][ansKey];
-      // the ghost up top wakes up too
-      boostUntil = performance.now() + 8000; start = null;
-      if (boosts <= 0) for (var j = 0; j < opts.length; j++) opts[j].disabled = true;
-    });
-  }
-
-  applyLang();
-  fit(reel); paintMinis(); setStage(0);
-  window.addEventListener('resize', function () { fit(reel); paintMinis(); shownQ = -1; });
-  if (reduce) { setStage(1); paint(reel, Q[1], 1.3); }
-  else window.requestAnimationFrame(frame);
+  render();
 })();
 </script>
 </body>
