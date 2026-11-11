@@ -1,0 +1,14 @@
+{
+  "name": "doomscrolling-rehab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A proxy that makes short-video feeds slower the longer you scroll, with an AI you have to negotiate with to get speed back.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

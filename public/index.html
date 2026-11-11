@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Doomscroll Rehab</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f6f7f8;
+    --surface: #ffffff;
+    --text: #15181c;
+    --muted: #5d6670;
+    --line: rgba(21, 24, 28, 0.08);
+    --line-strong: rgba(21, 24, 28, 0.2);
+    --accent: #1f5fd6;
+    --on-accent: #ffffff;
+    --ok: #1c7a4a;
+    --warn: #a35a00;
+    --bad: #b3261e;
+    --bubble: #eef0f2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #101214;
+      --surface: #181b1f;
+      --text: #eceef0;
+      --muted: #9aa3ad;
+      --line: rgba(236, 238, 240, 0.08);
+      --line-strong: rgba(236, 238, 240, 0.24);
+      --accent: #7fa8ff;
+      --on-accent: #0c1220;
+      --ok: #6fd3a0;
+      --warn: #f0b060;
+      --bad: #ff8a80;
+      --bubble: #22262b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 400 16px/1.7 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 22px; font-weight: 500; margin: 0; }
+  h2 { font-size: 16px; font-weight: 500; margin: 0 0 8px; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .small { font-size: 14px; line-height: 1.5; }
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 860px) { .grid { grid-template-columns: 3fr 2fr; align-items: start; } }
+  .col { display: grid; gap: 16px; }
+  .card { background: var(--surface); border: 0.5px solid var(--line-strong); border-radius: 12px; padding: 1rem 1.25rem; }
+  .status { font-size: 14px; }
+  .status[data-stage="full"], .status[data-stage="boost"] { color: var(--ok); }
+  .status[data-stage="slowing"] { color: var(--warn); }
+  .status[data-stage="floor"] { color: var(--bad); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 24px; }
+  .stat-value { font-size: 40px; line-height: 1.2; font-weight: 500; font-variant-numeric: tabular-nums; transition: color 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .stat-value small { font-size: 16px; font-weight: 400; color: var(--muted); }
+  .chart { width: 100%; height: auto; display: block; margin-top: 12px; overflow: visible; }
+  .chart .axis { stroke: var(--line-strong); stroke-width: 1; }
+  .chart .curve { fill: none; stroke: var(--text); stroke-width: 2; stroke-linejoin: round; }
+  .chart .grace { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 4; }
+  .chart .dot { fill: var(--text); transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .chart text { fill: var(--muted); font-size: 12px; }
+  .plan { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; align-items: end; height: 96px; margin: 12px 0 8px; }
+  .plan button { all: unset; cursor: pointer; background: var(--line-strong); border-radius: 4px 4px 0 0; min-height: 6px; transition: background 150ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .plan button[aria-current="true"] { background: var(--text); }
+  .plan button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chat { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; padding: 4px 0 8px; }
+  .msg { max-width: 85%; padding: 8px 12px; border-radius: 12px; background: var(--bubble); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { justify-self: end; background: transparent; border: 0.5px solid var(--line-strong); }
+  .msg.note { justify-self: center; background: transparent; color: var(--muted); font-size: 14px; padding: 0; }
+  form.say { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1; min-width: 0; font: inherit; color: inherit; background: transparent;
+    border: 0.5px solid var(--line-strong); border-radius: 8px; padding: 8px 12px;
+  }
+  input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary, button.plain {
+    font: inherit; font-weight: 500; border-radius: 8px; padding: 8px 14px; cursor: pointer;
+    transition: transform 150ms cubic-bezier(0.22, 1, 0.36, 1), opacity 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  button.primary { background: var(--accent); color: var(--on-accent); border: 0; }
+  button.plain { background: transparent; color: var(--text); border: 0.5px solid var(--line-strong); font-weight: 400; font-size: 14px; padding: 4px 10px; }
+  button.plain[aria-pressed="true"] { border-color: var(--text); font-weight: 500; }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .hosts { list-style: none; margin: 0; padding: 0; }
+  .hosts li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 0.5px solid var(--line); font-size: 14px; }
+  .hosts li:first-child { border-top: 0; }
+  .hosts .name { overflow-wrap: anywhere; }
+  .hosts .tag { color: var(--warn); }
+  code { font: 14px/1.5 ui-monospace, "Cascadia Mono", Consolas, monospace; background: var(--bubble); border-radius: 4px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Doomscroll Rehab</h1>
+    <p class="status" id="status" data-stage="idle">Waiting for the phone</p>
+  </header>
+
+  <div class="grid">
+    <div class="col">
+      <section class="card">
+        <div class="stats">
+          <div>
+            <p class="muted small">Feed speed</p>
+            <p class="stat-value" id="speed">Full</p>
+          </div>
+          <div>
+            <p class="muted small">Scrolling this session</p>
+            <p class="stat-value" id="timer">0:00</p>
+          </div>
+          <div>
+            <p class="muted small">Wait before each new video</p>
+            <p class="stat-value" id="delay">0.0 <small>s</small></p>
+          </div>
+        </div>
+        <svg class="chart" id="chart" viewBox="0 0 600 190" role="img" aria-label="Feed speed against minutes scrolled">
+          <line class="axis" x1="40" y1="150" x2="590" y2="150"></line>
+          <line class="grace" id="graceLine" x1="0" y1="20" x2="0" y2="150"></line>
+          <polyline class="curve" id="curve" points=""></polyline>
+          <circle class="dot" id="dot" r="6" cx="0" cy="0"></circle>
+          <text x="40" y="14">Full speed</text>
+          <text x="40" y="168">0 min</text>
+          <text id="graceLabel" x="0" y="168" text-anchor="middle"></text>
+          <text id="floorLabel" x="590" y="168" text-anchor="end"></text>
+          <text id="floorSpeed" x="590" y="140" text-anchor="end"></text>
+        </svg>
+        <p class="small muted" id="explain"></p>
+      </section>
+
+      <section class="card">
+        <h2>Fourteen-day taper</h2>
+        <p class="small muted">Each day the full-speed window is 7 percent shorter than the day before, a change small enough to go unnoticed. Tap a day to preview it.</p>
+        <div class="plan" id="plan"></div>
+        <p class="small" id="planNote"></p>
+      </section>
+
+      <section class="card">
+        <h2>What the phone is loading</h2>
+        <p class="small muted">Hostnames only. The proxy never sees inside the connection.</p>
+        <ul class="hosts" id="hosts"></ul>
+        <p class="small muted" id="hostsEmpty">Nothing yet. Set the phone's Wi-Fi proxy to <code id="proxyAddr"></code> and open a feed.</p>
+      </section>
+    </div>
+
+    <div class="col">
+      <section class="card">
+        <h2>Ask for full speed</h2>
+        <p class="small muted" id="aiNote"></p>
+        <div class="chat" id="chat" aria-live="polite"></div>
+        <form class="say" id="say">
+          <input type="text" id="text" placeholder="Why do you want it back?" autocomplete="off" maxlength="300" aria-label="Message">
+          <button class="primary" id="send" type="submit">Send</button>
+        </form>
+        <p class="small muted" id="grants" style="margin-top:8px"></p>
+      </section>
+
+      <section class="card">
+        <h2>Demo controls</h2>
+        <p class="small muted">Clock speed, so a twenty-minute session fits in a short demo.</p>
+        <div class="row" id="scales" style="margin:8px 0">
+          <button class="plain" data-scale="1">Real time</button>
+          <button class="plain" data-scale="10">10x</button>
+          <button class="plain" data-scale="30">30x</button>
+          <button class="plain" data-scale="60">60x</button>
+        </div>
+        <div class="row">
+          <button class="plain" id="skip">Skip ahead 5 min</button>
+          <button class="plain" id="reset">Reset session</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var history = [];
+  var last = null;
+  var X0 = 40, X1 = 590, Y0 = 20, Y1 = 150;
+
+  function post(path, body) {
+    return fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+
+  function fmtTime(min) {
+    var s = Math.floor(min * 60);
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function fmtSpeed(kbps) {
+    if (kbps === null) return { n: 'Full', u: '' };
+    if (kbps >= 1000) return { n: (kbps / 1000).toFixed(1), u: 'Mbps' };
+    return { n: String(kbps), u: 'kbps' };
+  }
+
+  function setStat(el, n, u) {
+    el.textContent = n;
+    if (u) {
+      var s = document.createElement('small');
+      s.textContent = ' ' + u;
+      el.appendChild(s);
+    }
+  }
+
+  var STAGE = {
+    idle: 'Waiting for the phone',
+    full: 'Full speed',
+    slowing: 'Slowing down',
+    floor: 'At the floor',
+    boost: 'Boost active'
+  };
+
+  function drawChart(s) {
+    var span = s.graceMin + s.rampMin + 5;
+    var x = function (m) { return X0 + (X1 - X0) * Math.min(1, m / span); };
+    var gx = x(s.graceMin), fx = x(s.graceMin + s.rampMin);
+    $('curve').setAttribute('points', [X0, Y0, gx, Y0, fx, Y1 - 12, X1, Y1 - 12].join(' '));
+    $('graceLine').setAttribute('x1', gx);
+    $('graceLine').setAttribute('x2', gx);
+    $('graceLabel').setAttribute('x', gx);
+    $('graceLabel').textContent = s.graceMin.toFixed(1) + ' min';
+    $('floorLabel').textContent = Math.round(span) + ' min';
+    $('floorSpeed').textContent = s.minKbps + ' kbps';
+
+    var m = Math.min(s.sessionMin, span);
+    var y = Y0;
+    if (m > s.graceMin) {
+      var t = Math.min(1, (m - s.graceMin) / s.rampMin);
+      y = Y0 + (Y1 - 12 - Y0) * t;
+    }
+    $('dot').setAttribute('cx', x(m));
+    $('dot').setAttribute('cy', y);
+  }
+
+  function drawPlan(s) {
+    var box = $('plan');
+    if (box.childElementCount !== s.plan.length) {
+      box.textContent = '';
+      s.plan.forEach(function (g, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.addEventListener('click', function () { post('/api/demo', { day: i }).then(render); });
+        box.appendChild(b);
+      });
+    }
+    var max = s.plan[0];
+    Array.prototype.forEach.call(box.children, function (b, i) {
+      b.style.height = Math.max(6, Math.round((s.plan[i] / max) * 100)) + '%';
+      b.setAttribute('aria-current', i === s.day ? 'true' : 'false');
+      b.setAttribute('aria-label', 'Day ' + (i + 1) + ', ' + s.plan[i] + ' minutes at full speed');
+    });
+    $('planNote').textContent = 'Day ' + (s.day + 1) + ': full speed for the first ' + s.plan[s.day] +
+      ' minutes. Day ' + s.plan.length + ': ' + s.plan[s.plan.length - 1] + ' minutes.';
+  }
+
+  function drawHosts(s) {
+    var ul = $('hosts');
+    ul.textContent = '';
+    s.hosts.forEach(function (h) {
+      var li = document.createElement('li');
+      var name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = h.host;
+      var right = document.createElement('span');
+      right.className = 'row';
+      var kb = document.createElement('span');
+      kb.className = 'muted';
+      kb.textContent = h.kb >= 1024 ? (h.kb / 1024).toFixed(1) + ' MB' : h.kb + ' KB';
+      right.appendChild(kb);
+      if (h.target) {
+        var tag = document.createElement('span');
+        tag.className = 'tag';
+        tag.textContent = 'slowed';
+        right.appendChild(tag);
+      } else {
+        var add = document.createElement('button');
+        add.className = 'plain';
+        add.type = 'button';
+        add.textContent = 'Slow this';
+        add.addEventListener('click', function () {
+          var parts = h.host.split('.');
+          post('/api/targets', { add: parts.slice(-2).join('.') }).then(render);
+        });
+        right.appendChild(add);
+      }
+      li.appendChild(name);
+      li.appendChild(right);
+      ul.appendChild(li);
+    });
+    $('hostsEmpty').hidden = s.hosts.length > 0;
+    $('proxyAddr').textContent = (s.proxy.addresses[0] || 'laptop-ip') + ':' + s.proxy.port;
+  }
+
+  function render(s) {
+    if (!s || s.error) return;
+    last = s;
+    var st = $('status');
+    st.dataset.stage = s.stage;
+    st.textContent = STAGE[s.stage] + (s.stage === 'boost' ? ', ' + s.boostLeftSec + ' s left' : '');
+
+    var sp = fmtSpeed(s.kbps);
+    setStat($('speed'), sp.n, sp.u);
+    $('timer').textContent = fmtTime(s.sessionMin);
+    setStat($('delay'), (s.connectDelayMs / 1000).toFixed(1), 's');
+
+    var left = s.graceMin - s.sessionMin;
+    $('explain').textContent = s.stage === 'boost'
+      ? 'Full speed was granted. The session clock is paused until the boost ends.'
+      : left > 0
+        ? 'Full speed for another ' + fmtTime(left) + '. After that the feed gets slower every minute until it reaches ' + s.minKbps + ' kbps.'
+        : 'The feed is being held at ' + (s.kbps || s.minKbps) + ' kbps. Ten minutes away from it resets the session.';
+
+    drawChart(s);
+    drawPlan(s);
+    drawHosts(s);
+
+    $('aiNote').textContent = s.ai
+      ? 'Negotiator model: ' + s.ai
+      : 'No model configured. Replies are scripted until LLM_API_KEY is set in .env.';
+    $('grants').textContent = s.grantsToday + ' of ' + s.maxGrants + ' boosts used today';
+    Array.prototype.forEach.call(document.querySelectorAll('#scales button'), function (b) {
+      b.setAttribute('aria-pressed', Number(b.dataset.scale) === s.timeScale ? 'true' : 'false');
+    });
+  }
+
+  function addMsg(kind, text) {
+    var d = document.createElement('div');
+    d.className = 'msg ' + kind;
+    d.textContent = text;
+    $('chat').appendChild(d);
+    $('chat').scrollTop = $('chat').scrollHeight;
+    return d;
+  }
+
+  $('say').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var text = $('text').value.trim();
+    if (!text) return;
+    $('text').value = '';
+    history.push({ role: 'user', content: text });
+    addMsg('user', text);
+    var pending = addMsg('note', 'Thinking');
+    $('send').disabled = true;
+    post('/api/chat', { messages: history }).then(function (r) {
+      pending.remove();
+      if (r.error) { addMsg('note', 'Could not reach the negotiator: ' + r.error); return; }
+      history.push({ role: 'assistant', content: r.reply });
+      addMsg('bot', r.reply);
+      if (r.source === 'scripted' && last && last.ai) addMsg('note', 'Model call failed, scripted reply shown. ' + (r.error || ''));
+      if (r.grantMinutes > 0) addMsg('note', 'Full speed for ' + r.grantMinutes + ' minutes');
+    }).catch(function (err) {
+      pending.remove();
+      addMsg('note', 'Could not reach the negotiator: ' + err.message);
+    }).then(function () {
+      $('send').disabled = false;
+      $('text').focus();
+    });
+  });
+
+  $('scales').addEventListener('click', function (e) {
+    var b = e.target.closest('button');
+    if (b) post('/api/demo', { timeScale: Number(b.dataset.scale) }).then(render);
+  });
+  $('skip').addEventListener('click', function () { post('/api/demo', { addMinutes: 5 }).then(render); });
+  $('reset').addEventListener('click', function () {
+    history = [];
+    $('chat').textContent = '';
+    post('/api/demo', { reset: true }).then(render);
+  });
+
+  function poll() {
+    fetch('/api/state').then(function (r) { return r.json(); }).then(render).catch(function () {});
+  }
+  poll();
+  setInterval(poll, 1000);
+})();
+</script>
+</body>
+</html>
