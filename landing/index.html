@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Doomscroll Rehab: how far can you scroll?</title>
 <link rel="icon" href="icon-192.png">
+<meta property="og:title" content="滑越久，網路越慢。">
+<meta property="og:description" content="不封鎖、不說教。你選的 app 會越滑越卡，卡到你自己把手機放下。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="DoomScrolling Rehab">
+<meta property="og:url" content="https://doomscrolling-rehab.vercel.app/">
+<meta property="og:image" content="https://doomscrolling-rehab.vercel.app/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://doomscrolling-rehab.vercel.app/og.jpg">
+<link rel="canonical" href="https://doomscrolling-rehab.vercel.app/">
+<meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://www.youtube-nocookie.com">
 <link rel="preconnect" href="https://i.ytimg.com">
 <meta name="description" content="Short videos get slower and blurrier the longer you watch, so putting the phone down gets easy. Scroll this page to feel it.">
@@ -158,6 +170,17 @@ figcaption { padding: 10px 8px 6px; font-size: 15px; line-height: 1.5; color: va
 .plainlist cite { display: block; font-style: normal; font-size: 14px; color: var(--muted); margin-top: 2px; }
 .get { margin-top: 72px; background: var(--soft); border-radius: 24px; padding: 40px 24px; text-align: center; }
 .get p { max-width: 30em; margin: 12px auto 0; color: var(--muted); }
+.get .pick { margin-top: 24px; color: var(--ink); font-weight: 500; }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px auto 0; max-width: 560px; }
+.chip { cursor: pointer; background: var(--card); border: 1px solid var(--line-strong); border-radius: 8px; padding: 6px 14px; font-size: 16px; line-height: 1.5; transition: background 140ms var(--ease), color 140ms var(--ease), border-color 140ms var(--ease), transform 140ms var(--ease); }
+.chip:active { transform: scale(0.96); }
+.chip[aria-pressed="true"] { background: var(--plum); color: var(--plum-ink); border-color: var(--plum); }
+.wl { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 24px auto 0; max-width: 520px; }
+.wl input { flex: 1 1 220px; min-width: 0; font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 12px 16px; }
+.wl input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.wl .cta { margin-top: 0; border: 0; }
+.wl .cta[disabled] { opacity: 0.6; cursor: default; }
+.get .msg { min-height: 1.7em; color: var(--ink); }
 .cta { display: inline-block; background: var(--cta); color: var(--cta-ink); font-weight: 500; font-size: 18px; text-decoration: none; padding: 14px 26px; border-radius: 12px; margin-top: 24px; }
 footer { padding: 32px 0 48px; }
 
@@ -240,9 +263,16 @@ footer { padding: 32px 0 48px; }
 
 <div class="wrap">
   <div class="get" id="get">
-    <h2 data-zh="想在自己的手機上試試？">Want this on your own phone?</h2>
-    <p data-zh="目前是 Android 版，免費、開放原始碼。還沒上架商店，安裝方式在 GitHub 上。目前只用 Instagram 實測過，還沒有 iPhone 版。">It is on Android for now, free and open source. It is not in an app store yet; setup steps are on GitHub. So far it has only been tested with Instagram, and there is no iPhone version.</p>
-    <a class="cta btn" href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="到 GitHub 取得 App">Get the app on GitHub</a>
+    <h2 data-zh="想在自己的手機上用？">Want this on your own phone?</h2>
+    <p data-zh="留下 email，名額開放時我們寄信通知你。Android 先推出，iPhone 版開發中。">Leave your email and we will write to you when your spot opens. Android comes first; the iPhone version is in the works.</p>
+    <p class="pick" data-zh="你最想少滑哪幾個？沒選的完全不受影響。">Which ones do you want to scroll less? Anything you do not pick is left alone.</p>
+    <div class="chips" id="chips"></div>
+    <form class="wl" id="join" novalidate>
+      <input type="email" name="email" id="email" autocomplete="email" inputmode="email" placeholder="you@email.com" aria-label="Email">
+      <button class="cta btn" type="submit" id="joinBtn" data-zh="加入等候名單">Join the waitlist</button>
+    </form>
+    <p class="msg" id="msg" role="status"></p>
+    <p class="small" style="margin-top:20px"><a href="https://github.com/Yuki66666666/doomscrolling-rehab" data-zh="不想等？程式碼和 Android 安裝方式都在 GitHub 上。">Do not want to wait? The code and Android setup steps are on GitHub.</a></p>
   </div>
   <footer class="small muted"><span data-zh="在台北的 c0mpiled-18（YC Startup School Hackathon）做出來的。App 只看得到連線的網域名稱，看不到你在看什麼；你打給 AI 的話會送到語言模型。">Built at c0mpiled-18, the YC Startup School Hackathon in Taipei. The app only sees the names of sites being contacted, never what you watch. What you type to the AI is sent to a language model.</span></footer>
 </div>
@@ -320,6 +350,7 @@ footer { padding: 32px 0 48px; }
       clear: 'The AI says: specific, and it ends. Full speed is back. Go find that recipe.',
       last: 'Full speed is back. That was the third time today, so that is it until tomorrow.',
       none: 'No more speed-ups today. Tomorrow.',
+      bad: 'That email looks off. Mind checking it?', ok: 'You are on the list. We will email you when your spot opens.', dup: 'You are already on the list.', err: 'Something went wrong. Please try again in a moment.', sending: 'Sending…',
       sleep: 'Phone down. Nice.',
       real: function (m) { return m ? 'In the real app, on day one, it gets this slow about ' + m + ' minutes in.' : 'In the real app, the first ten minutes of day one look just like that: completely normal.'; },
       verdict: function (n) { return n >= 8 ? 'You scrolled all ' + n + ' videos. Nobody stopped you.' : 'You put it down after ' + n + (n === 1 ? ' video.' : ' videos.') + ' Nobody had to stop you.'; }
@@ -334,6 +365,7 @@ footer { padding: 32px 0 48px; }
       clear: 'AI 說：夠具體，也有終點。還你全速，去找食譜吧。',
       last: '還你全速。這是今天第三次，明天之前沒有了。',
       none: '今天不能再要回速度了，明天吧。',
+      bad: '這個 email 看起來怪怪的，再檢查一下？', ok: '收到，你在名單上了。名額開放時會寄信給你。', dup: '你已經在名單上了。', err: '送出失敗，等一下再試一次。', sending: '送出中…',
       sleep: '手機放下了。很好。',
       real: function (m) { return m ? '在真正的 App 裡，第一天大約滑到第 ' + m + ' 分鐘，就會慢成這樣。' : '在真正的 App 裡，第一天的前十分鐘就像這樣：完全正常。'; },
       verdict: function (n) { return n >= 8 ? '你把 ' + n + ' 支全滑完了，沒有人擋你。' : '你滑了 ' + n + ' 支就放下了，沒有人需要擋你。'; }
@@ -403,6 +435,7 @@ footer { padding: 32px 0 48px; }
     // day-one defaults: 10 minutes at full speed, then 15 minutes down to the floor; the toy's levels 3 to 7 cover that slope
     $('real').textContent = S.real(maxV < 3 ? 0 : 10 + (maxV - 2) * 3);
     $('sleepT').textContent = S.sleep;
+    $('msg').textContent = msgKey ? S[msgKey] : '';
   }
   function pop(el) { if (reduce) return; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); }
 
@@ -467,7 +500,7 @@ footer { padding: 32px 0 48px; }
   $('what').addEventListener('click', function (e) { e.preventDefault(); go(about); });
   $('home').addEventListener('click', function (e) { e.preventDefault(); go(reels[0]); });
   var links = document.querySelectorAll('a[href="#get"]');
-  for (var g = 0; g < links.length; g++) links[g].addEventListener('click', function (e) { e.preventDefault(); go($('get')); });
+  for (var g = 0; g < links.length; g++) links[g].addEventListener('click', function (e) { e.preventDefault(); go($('get')); try { $('email').focus({ preventScroll: true }); } catch (x) {} });
   $('askBtn').addEventListener('click', function () {
     if (boosts <= 0) { note = 'none'; render(); return; }
     ask.classList.toggle('on');
@@ -488,6 +521,38 @@ footer { padding: 32px 0 48px; }
     lang = lang === 'zh' ? 'en' : 'zh';
     try { localStorage.setItem('dr-lang', lang); } catch (e) {}
     render();
+  });
+
+  // ---- waitlist (Supabase; the key is a publishable one, access is limited by row level security) ----
+  var WL = { url: 'https://ayyllxwelxcgygtrvqnl.supabase.co', key: 'sb_publishable_yH1NoTH8BPFKgqvAnv08Pg_ILq-7cOl' };
+  var APPS = [['YouTube', 1], ['Instagram', 1], ['TikTok', 1], ['Threads', 1], ['Facebook', 1], ['X', 0], ['Reddit', 0], ['小紅書', 0], ['Dcard', 0]];
+  var picked = {}, chips = $('chips');
+  for (var ai = 0; ai < APPS.length; ai++) {
+    var cb = document.createElement('button');
+    cb.type = 'button'; cb.className = 'chip'; cb.textContent = APPS[ai][0];
+    cb.setAttribute('aria-pressed', APPS[ai][1] ? 'true' : 'false');
+    if (APPS[ai][1]) picked[APPS[ai][0]] = true;
+    cb.addEventListener('click', function () {
+      var on = this.getAttribute('aria-pressed') !== 'true';
+      this.setAttribute('aria-pressed', on ? 'true' : 'false');
+      if (on) picked[this.textContent] = true; else delete picked[this.textContent];
+    });
+    chips.appendChild(cb);
+  }
+  var msgKey = '';
+  function say(k) { msgKey = k; $('msg').textContent = k ? STR[lang][k] : ''; }
+  $('join').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var input = $('email'), btn = $('joinBtn'), email = input.value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email) || email.length > 254) { say('bad'); input.focus(); return; }
+    btn.disabled = true; say('sending');
+    fetch(WL.url + '/rest/v1/waitlist', {
+      method: 'POST',
+      headers: { apikey: WL.key, Authorization: 'Bearer ' + WL.key, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({ email: email, apps: Object.keys(picked), lang: lang })
+    }).then(function (r) {
+      if (r.ok) { say('ok'); input.value = ''; } else if (r.status === 409) say('dup'); else say('err');
+    }).catch(function () { say('err'); }).then(function () { btn.disabled = false; });
   });
 
   // press, overshoot, ripple on every button
